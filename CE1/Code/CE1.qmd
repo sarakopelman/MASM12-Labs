@@ -301,7 +301,7 @@ DataPart5 <- readr::read_csv("../Data/DataPart5.csv")
 
 x <- DataPart5$x  
 x <- x-mean(x)
-plot(x, type = "l")
+plot(x, type = "l", main = "X")
 acf(x, lag.max = 40, main = "ACF of series")
 pacf(x, lag.max = 40, main = "PACF of series")
 
@@ -318,10 +318,8 @@ fit <- arima(x, order = c(2, 0, 0),
 
 res <- residuals(fit)
 
-#par(mfrow = c(1,2))
 acf(res, lag.max = 40, main = "ACF of residuals")
 pacf(res, lag.max = 40, main = "PACF of residuals")
-par(mfrow = c(1,1))
 
 # 95% reference band for ACF/PACF (rough):
 n <- length(res)
@@ -446,7 +444,7 @@ ldf <- function(x,lags,nBoot=30,plotIt=TRUE,plotFits=FALSE)
 ### Running function up to 10 lags
 
 ```{r}
-val <- ldf(res, 1:3)
+val <- ldf(res, 1:10)
 
 # LDF significant at lag 2!!!
 ```
@@ -454,10 +452,9 @@ val <- ldf(res, 1:3)
 ```{r}
 n <- length(res)
 
-plot(res[1:(n-2)], res[3:n]) # Plotting residuals
+plot(res[1:(n-2)], res[3:n], main = "e[t] Against e[t-2]") # Plotting residuals
 
-plot(x[1:(n-2)], x[3:n]) # Plotting x against x_{n-2}
-abline(v = c(-4.2, -0.19, 2.8), col = "red")
+plot(x[1:(n-2)], x[3:n], main = "X[t] Against X[t-2]") # Plotting x against x_{n-2}
 # We see possibly 4 different regimes! SETAR!!!
 # Note that the regimes have different variances
 
@@ -471,7 +468,7 @@ x1 <- rep(NA, n)
 x2 <- rep(NA, n)
 x3 <- rep(NA, n)
 x4 <- rep(NA, n)
-
+# For loop for splitting data into 4 regions
 for(t in 3:n){
   if(x[t-2] < cut_offs[1]){
     x1[t] <- x[t] 
@@ -486,11 +483,6 @@ for(t in 3:n){
     x4[t] <- x[t]
   }
 }
-
-#x1 <- x1[!is.na(x1)]
-#x2 <- x2[!is.na(x2)]
-#x3 <- x3[!is.na(x3)]
-#x4 <- x4[!is.na(x4)]
 
 ```
 
@@ -510,9 +502,6 @@ i2 <- which(!is.na(x2)); points(x[i2-2], x[i2], pch=16, col=cols[2])
 i3 <- which(!is.na(x3)); points(x[i3-2], x[i3], pch=16, col=cols[3])
 i4 <- which(!is.na(x4)); points(x[i4-2], x[i4], pch=16, col=cols[4])
 
-#legend("bottomleft",
-#       legend = c("x[t-2]< -4.2", "x2: [c1,c2)", "x3: [c2,c3)", "x4: ≥c3"),
-#       col = cols, pch = 16, bty = "n")
 labs <- list(
   bquote(x[t-2] %in% "(" * -infinity * "," ~ .(cut_offs[1]) * ")"),
   bquote(x[t-2] %in% "[" * .(cut_offs[1]) * "," ~ .(cut_offs[2]) * ")"),
