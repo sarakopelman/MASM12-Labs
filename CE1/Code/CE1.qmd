@@ -104,9 +104,10 @@ plot(1:n, y, type = "l")
 ### Theoretical conditional mean for SETAR(2;1;1)
 
 ```{r}
+set.seed(5)
 n <- 1000
 ## Errors
-r <- rnorm(n)
+r <- rnorm(n,sd=1)
 ## Make a time series y with a regime model
 y <- rep(NA,n)
 y[1] <- r[1]
@@ -121,6 +122,40 @@ for(t in 2:n)
         y[t] <- -3 - 0.8 * y[t-1] + r[t]
       }
 }
+
+#Plot theoretical conditional mean:
+# --- Conditional mean function ---
+cond_mean <- function(y_prev) {
+  ifelse(y_prev < 0, 3 + 0.8 * y_prev, -3 - 0.8 * y_prev)
+}
+
+# --- Range for plotting ---
+y_prev_seq <- seq(-10, 10, length.out = 400)
+
+# --- Split into two regimes ---
+y_neg <- y_prev_seq[y_prev_seq < 0]
+y_pos <- y_prev_seq[y_prev_seq >= 0]
+
+# --- Plot empty frame first ---
+plot(y_prev_seq, cond_mean(y_prev_seq), type = "n",
+     main = expression("Piecewise Conditional Mean  E[Y[t] | Y[t-1]]"),
+     xlab = expression(Y[t-1]), ylab = expression(E[Y[t] ~ "|" ~ Y[t-1]]),
+     ylim = c(-10, 10))
+abline(h = 0, v = 0, col = "gray", lty = 2)
+
+# --- Add simulated points ---
+points(y[-n], y[-1], pch = 16, cex = 0.5, col = rgb(0, 0, 0, 0.25))
+
+# --- Add the two theoretical segments ---
+lines(y_neg, 3 + 0.8 * y_neg, col = "red", lwd = 2)
+lines(y_pos, -3 - 0.8 * y_pos, col = "blue", lwd = 2)
+
+# --- Mark threshold and legend ---
+abline(v = 0, col = "gray40", lty = 3, lwd = 2)
+legend("topright", legend = c("y[t-1] < 0", "y[t-1] ≥ 0"),
+       col = c("red", "blue"), lwd = 2, bty = "n")
+
+
 M <- rep(NA, n-1) 
 for (t in 2:n) {
   if (y[t-1] < 0) {
@@ -136,57 +171,188 @@ plot(3:202, M[1:200], type = "l")
 lines(2:201, y[1:200], col = "red")
 
 plot(head(y, -1), tail(y, -1))
+
+plot(y, type = "l", col = "blue",
+     xlab = "Time t", ylab = expression(X[t]),
+     main = "SETAR(2,1,2) Process")
+abline(h = 0, lty = 2, col = "red")  # threshold at 0
+grid()
+
+# Shorter range (first 100 points)
+range_end <- 100
+
+# 1️⃣ Line plot of M vs y
+plot(3:(range_end+2), M[1:range_end], type = "l",
+     xlab = "Time t", ylab = "M",
+     main = "Conditional Mean vs Process")
+lines(2:(range_end+1), y[1:range_end], col = "red")
+legend("topright", legend = c("M", "y"), col = c("black", "red"), lty = 1, bty="n")
+grid()
+
+# 2️⃣ Lag plot
+plot(head(y, range_end), tail(y, range_end),
+     xlab = expression(X[t-1]), ylab = expression(X[t]),
+     main = "Lag plot")
+grid()
+
+# 3️⃣ Time series plot
+plot(y[1:range_end], type = "l", col = "blue",
+     xlab = "Time t", ylab = expression(X[t]),
+     main = "SETAR(2,1,1) Process")
+abline(h = 0, lty = 2, col = "red")  # threshold at 0
+grid()
+
 #plot(head(M-y, -1), tail(M-y, -1))
 ```
 
 ### Estimating conditional mean
 ```{r}
+# -------------------------
+# Prepare data
+# -------------------------
+D <- data.frame(y = y[-1], y1 = y[-length(y)])
+M_theoretical <- ifelse(D$y1 < 0, 3 + 0.8 * D$y1, -3 - 0.8 * D$y1)
 
-D <- data.frame(y=y[-1], y1=y[-n])
+# Bandwidths to try
+spans <- c(0.1, 0.3, 0.5, 0.7)
 
-fit <- loess(y ~ y1, dat=D, span=0.2)
-yprd_2d <- predict(fit, data.frame(y1=D$y1))
+# Prepare sequence for theoretical mean lines
+v_left <- seq(min(D$y1), 0, length.out = 500)
+v_right <- seq(0, max(D$y1), length.out = 500)
+M_left <- 3 + 0.8 * v_left
+M_right <- -3 - 0.8 * v_right
 
-plot(y[2:n], yprd_2d)
+# -------------------------
+# Precompute LOESS fits
+# -------------------------
+fits <- lapply(spans, function(s) {
+  fit <- loess(y ~ y1, data = D, span = s)
+  predict(fit, newdata = data.frame(y1 = D$y1))
+})
 
-#plot(1:length(yprd_2d), yprd_2d, type = "l")
-#lines(1:length(yprd_2d), yprd_2d, col = "red")
-v <- seq(-5, 5, length.out = 1000)
-U_prd <- predict(fit, v)
-plot(v, U_prd, type='l')
+# -------------------------
+# Plot 1: Conditional Mean Functions (2x2)
+# -------------------------
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))  # 2 rows, 2 columns
+
+for(i in seq_along(spans)){
+  s <- spans[i]
+  M_hat <- fits[[i]]
+  
+  plot(D$y1, D$y,
+       pch = 16, col = rgb(0.2, 0.2, 0.7, 0.4),
+       xlab = expression(X[t]),
+       ylab = expression(E[X[t+1] ~ "|" ~ X[t] == x]),
+       main = paste("Span =", s))
+  lines(D$y1[order(D$y1)], M_hat[order(D$y1)], col = "red", lwd = 2)
+  lines(v_left, M_left, col = "black", lwd = 2, lty = 2)
+  lines(v_right, M_right, col = "black", lwd = 2, lty = 2)
+  abline(v = 0, lty = 3, col = "gray40")
+  grid()
+}
+
+# -------------------------
+# Plot 2: Predicted vs Theoretical (2x2)
+# -------------------------
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))  # 2 rows, 2 columns
+
+for(i in seq_along(spans)){
+  s <- spans[i]
+  M_hat <- fits[[i]]
+  
+  plot(M_theoretical, M_hat,
+       pch = 16, col = rgb(0.2, 0.2, 0.7, 0.4),
+       xlab = expression("Theoretical mean " ~ M(X[t])),
+       ylab = expression("LOESS estimate " ~ hat(M)(X[t])),
+       main = paste("Span =", s))
+  abline(0, 1, col = "red", lty = 2, lwd = 2)
+  grid()
+}
+
+
+
 ```
 
 ## Part 3
 
 ### Theoretical cumulative conditional mean
 ```{r}
+# -------------------------
+# SETAR cumulative conditional mean
+# -------------------------
+a_setar <- -2                  # starting point
+b_max_setar <- 2               # maximum b value
+b_setar <- seq(a_setar, b_max_setar, length.out = 500)
 
-x <- seq(-2, 2, length.out = 500)
-
-# Conditional mean / drift
-M <- ifelse(x < 0,
-            3 + 0.8*x,    # left piece
-            -3 - 0.8*x)   # right piece
-
-# Plot
-plot(x, M, type="l", lwd=2, col="blue",
-     xlab="x", ylab=expression(M(x)),
-     main="Conditional Mean (Drift)")
-
-abline(h=0, lty=2, col="gray")  # zero reference
-abline(v=0, lty=2, col="gray")  # breakpoint at 0
-
-a <- -8
-b <- seq(-8, 8, length.out = 500)
-
-lambda <- ifelse(b <= 0,
-                 3*(b - a) + 0.4*(b^2 - a^2),
-                 (3*(0 - a) + 0.4*(0^2 - a^2)) + (-3*(b - 0) - 0.4*(b^2 - 0^2))
+lambda_setar <- ifelse(b_setar < 0,
+                       3*(b_setar - a_setar) + 0.4*(b_setar^2 - a_setar^2),
+                       ifelse(b_setar == 0,
+                              3*(0 - a_setar) + 0.4*(0^2 - a_setar^2),
+                              (3*(0 - a_setar) + 0.4*(0^2 - a_setar^2)) +
+                                (-3*(b_setar - 0) - 0.4*(b_setar^2 - 0^2))
+                       )
 )
 
-plot(b, lambda, type="l", lwd=2, col="blue",
-     xlab="b", ylab=expression(Lambda(b)))
+plot(b_setar, lambda_setar, type="l", lwd=2, col="blue",
+     xlab="b", ylab=expression(Lambda(b)),
+     main=paste0("SETAR Cumulative Lambda (a=", a_setar, ", b_max=", b_max_setar, ")"))
 abline(h=0, lty=2, col="gray")
+abline(v=0, lty=2, col="gray")
+
+# -------------------------
+# AR(1) cumulative conditional mean
+# -------------------------
+a_ar <- -2
+b_max_ar <- 2
+b_ar <- seq(a_ar, b_max_ar, length.out = 500)
+phi <- -0.8
+
+lambda_ar <- 0.5 * phi * (b_ar^2 - a_ar^2)
+
+plot(b_ar, lambda_ar, type="l", lwd=2, col="red",
+     xlab="b", ylab=expression(Lambda(b)),
+     main=paste0("AR(1) Cumulative Lambda (a=", a_ar, ", b_max=", b_max_ar, ")"))
+abline(h=0, lty=2, col="gray")
+abline(v=0, lty=2, col="gray")
+
+# -------------------------
+# SETAR cumulative conditional mean (larger area)
+# -------------------------
+a_setar_large <- -20
+b_max_setar_large <- 20
+b_setar_large <- seq(a_setar_large, b_max_setar_large, length.out = 1000)
+
+lambda_setar_large <- ifelse(b_setar_large < 0,
+                             3*(b_setar_large - a_setar_large) + 0.4*(b_setar_large^2 - a_setar_large^2),
+                             ifelse(b_setar_large == 0,
+                                    3*(0 - a_setar_large) + 0.4*(0^2 - a_setar_large^2),
+                                    (3*(0 - a_setar_large) + 0.4*(0^2 - a_setar_large^2)) +
+                                      (-3*(b_setar_large - 0) - 0.4*(b_setar_large^2 - 0^2))
+                             )
+)
+
+plot(b_setar_large, lambda_setar_large, type="l", lwd=2, col="blue",
+     xlab="b", ylab=expression(Lambda(b)),
+     main=paste0("SETAR Cumulative Lambda (a=", a_setar_large, ", b_max=", b_max_setar_large, ")"))
+abline(h=0, lty=2, col="gray")
+abline(v=0, lty=2, col="gray")
+
+# -------------------------
+# AR(1) cumulative conditional mean (larger area)
+# -------------------------
+a_ar_large <- -20
+b_max_ar_large <- 20
+b_ar_large <- seq(a_ar_large, b_max_ar_large, length.out = 1000)
+
+lambda_ar_large <- 0.5 * phi * (b_ar_large^2 - a_ar_large^2)
+
+plot(b_ar_large, lambda_ar_large, type="l", lwd=2, col="red",
+     xlab="b", ylab=expression(Lambda(b)),
+     main=paste0("AR(1) Cumulative Lambda (a=", a_ar_large, ", b_max=", b_max_ar_large, ")"))
+abline(h=0, lty=2, col="gray")
+abline(v=0, lty=2, col="gray")
+
+
 
 ```
 
@@ -194,68 +360,112 @@ abline(h=0, lty=2, col="gray")
 
 ### Estimated cumulative conditional mean
 ```{r}
-x <- y
-##----------------------------------------------------------------
-## Script for calculation of confidence bands using the cumulative means technique.
-## First generate x: a time series with a realization of a Markov process.
+set.seed(7)
 
-## Parameters for the histogram regression
-n.bin <- 21
-breaks <- seq(-2, 2, len = n.bin + 1)
-h <- diff(breaks)[1]
-lambda <- gamma <- f.hat <- h.hat <- numeric(n.bin)
-##----------------------------------------------------------------
-
-##----------------------------------------------------------------
-## Cut into intervals conditioned on x_{t-1}
-L <- split(x[-1], cut(x[-length(x)], breaks))
-if(!all(sapply(L, length) >= 5)) { 
-  print('Stopped: There are less than 5 points in one of the intervals'); break
+# -------------------------
+# 1️⃣ Simulate SETAR(2,1,1)
+# -------------------------
+simulate_setar <- function(n){
+  r <- rnorm(n, sd = 1)
+  x <- rep(NA, n)
+  x[1] <- r[1]
+  for(t in 2:n){
+    if(x[t-1] < 0){
+      x[t] <- 3 + 0.8 * x[t-1] + r[t]
+    } else {
+      x[t] <- -3 - 0.8 * x[t-1] + r[t]
+    }
+  }
+  return(x)
 }
 
-## Calc the histogram regressogram
-for(i in 1:n.bin) {
-  x.bin <- L[[i]]
-  lambda[i] <- mean(x.bin)
-  f.hat[i] <- length(x.bin) / (n.bin * h)
-  gamma[i] <- sum((x.bin - lambda[i])^2) / length(x.bin)
+# -------------------------
+# 2️⃣ Cumulative means function
+# -------------------------
+cumulative_mean <- function(x, n.bin = 21){
+  a <- min(x)
+  b_max <- max(x)
+  breaks <- seq(a, b_max, length.out = n.bin + 1)
+  h <- diff(breaks)[1]
+  
+  # Cut into bins
+  L <- split(x[-1], cut(x[-length(x)], breaks))
+  if(!all(sapply(L, length) >= 5)) { 
+    warning('Some bins have less than 5 points'); 
+  }
+  
+  lambda <- gamma <- f.hat <- h.hat <- numeric(n.bin)
+  
+  for(i in 1:n.bin){
+    x.bin <- L[[i]]
+    lambda[i] <- mean(x.bin)
+    f.hat[i] <- length(x.bin) / (n.bin * h)
+    gamma[i] <- sum((x.bin - lambda[i])^2) / length(x.bin)
+  }
+  
+  Lambda <- cumsum(lambda * h)
+  for(i in 1:n.bin) h.hat[i] <- gamma[i] / f.hat[i]
+  H.hat <- cumsum(h.hat * h)
+  H.hat.b <- H.hat[n.bin]
+  c.alpha <- 1.273
+  Lambda.lower <- Lambda - c.alpha * n.bin^(-0.5) * sqrt(H.hat.b) * (1 + H.hat/H.hat.b)
+  Lambda.upper <- Lambda + c.alpha * n.bin^(-0.5) * sqrt(H.hat.b) * (1 + H.hat/H.hat.b)
+  
+  # Bin centers
+  b <- head(breaks, -1) + h/2
+  list(b = b, Lambda = Lambda, Lambda.lower = Lambda.lower, Lambda.upper = Lambda.upper, a = a)
 }
 
-## Make confidence bands for the cumulated function
-c.alpha <- 1.273
-Lambda <- cumsum(lambda * h)
-for(i in 1:n.bin) h.hat[i] <- gamma[i] / f.hat[i]
-H.hat <- cumsum(h.hat * h)
-H.hat.b <- H.hat[n.bin]
-Lambda.lower <- Lambda - c.alpha * n.bin^(-0.5) * sqrt(H.hat.b) * (1 + H.hat/H.hat.b)
-Lambda.upper <- Lambda + c.alpha * n.bin^(-0.5) * sqrt(H.hat.b) * (1 + H.hat/H.hat.b)
-##----------------------------------------------------------------
+# -------------------------
+# 3️⃣ Theoretical cumulative mean (3-piece integral)
+# -------------------------
+theoretical_lambda <- function(b, a){
+  Lambda_theor <- numeric(length(b))
+  for(i in seq_along(b)){
+    bi <- b[i]
+    if(bi < 0){
+      Lambda_theor[i] <- 3*(bi - a) + 0.4*(bi^2 - a^2)
+    } else if(a < 0 & bi >= 0){
+      Lambda_theor[i] <- 3*(0 - a) + 0.4*(0^2 - a^2) + (-3*(bi - 0) - 0.4*(bi^2 - 0^2))
+    } else {
+      Lambda_theor[i] <- -3*(bi - a) - 0.4*(bi^2 - a^2)
+    }
+  }
+  return(Lambda_theor)
+}
 
-# Define parametric curve using the same bin centers
-b <- head(breaks, -1) + h/2   # bin centers
-a <- min(b)
+# -------------------------
+# 4️⃣ Explore different sample sizes
+# -------------------------
+n_list <- c(1000, 5000, 10000)
+colors <- c("red","blue","green")
 
-lambda_param <- ifelse(b <= 0,
-                       3 * (b - a) + 0.4 * (b^2 - a^2),
-                       (3 * (0 - a) + 0.4 * (0^2 - a^2)) + (-3 * (b - 0) - 0.4 * (b^2 - 0^2))
-)
+# Determine overall plotting range using large sample
+x_tmp <- simulate_setar(max(n_list))
+res_tmp <- cumulative_mean(x_tmp)
+lambda_theor_tmp <- theoretical_lambda(res_tmp$b, res_tmp$a)
+ylim_all <- range(c(lambda_theor_tmp))
 
-# Find common y-range
-ylim_all <- range(c(lambda_param, Lambda, Lambda.lower, Lambda.upper))
+# Plot setup
+plot(NA, xlim = range(res_tmp$b), ylim = ylim_all,
+     xlab = expression(X[t-1]), ylab = "Cumulative mean", type = "n",
+     main = "Cumulative Means vs Theoretical Curve")
 
-# Empty plot frame
-plot(NA, xlim = range(b), ylim = ylim_all,
-     xlab = "b / index", ylab = expression(Lambda),
-     type = "n")
+# Overlay theoretical cumulative mean
+lines(res_tmp$b, theoretical_lambda(res_tmp$b, res_tmp$a), col = "black", lwd = 2, lty = 2)
 
-# Parametric Lambda(b)
-lines(b, lambda_param, col = "blue", lwd = 2)
-abline(h = 1.6, lty = 2, col = "gray")
+# Empirical curves for each sample size
+for(i in seq_along(n_list)){
+  x <- simulate_setar(n_list[i])
+  res <- cumulative_mean(x)
+  lines(res$b, res$Lambda, col = colors[i], lwd = 2)
+  lines(res$b, res$Lambda.lower, col = colors[i], lty = 2)
+  lines(res$b, res$Lambda.upper, col = colors[i], lty = 2)
+}
 
-# Empirical Lambda with confidence bands
-lines(b, Lambda, col = "black", lwd = 2)
-lines(b, Lambda.lower, col = "red", lty = 2)
-lines(b, Lambda.upper, col = "red", lty = 2)
+# Legend
+legend("topright", legend = c(paste("n =", n_list), "Theoretical"),
+       col = c(colors, "black"), lwd = 2, lty = c(rep(1, length(n_list)), 2), bty = "n")
 
 
 ```
