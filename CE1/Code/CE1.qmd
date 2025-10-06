@@ -77,26 +77,27 @@ r <- rnorm(n)
 y <- rep(NA,n)
 y[1] <- r[1]
 
-P = matrix(c(0.95, 0.05, 0.95, 0.05), nrow = 2, ncol = 2, byrow = TRUE)
-current = 1
-for(t in 2:n)
-  {
-    if(rbinom(1,1, P[current,1])==1 )
-      {
-        y[t] <- 3 + 0.8 * y[t-1] + r[t]
-        current=1
-      }
-    else
-      {
-        y[t] <- -3 - 0.8 * y[t-1] + r[t]
-        current=2
-      }
+# Defines transition matrix
+P = matrix(c(0.9, 0.1, 0.7, 0.3), nrow = 2, ncol = 2, byrow = TRUE)
+# Create state vector to save states
+state <- integer(n)
+state[1] <- 1
+
+
+
+for (t in 2:n) {
+  # sample next state given previous state
+  state[t] <- sample(1:2, size = 1, prob = P[state[t-1], ])
+
+  # regime-specific dynamics
+  if (state[t] == 1) {
+    y[t] <- 3 + 0.8 * y[t-1] + r[t]
+  } else {
+    y[t] <- -3 - 0.8 * y[t-1] + r[t]
   }
-## Put it into a data.frame, and make x1 and y1 which are lagged one step 
-##------------------------------------------------
-
-plot(1:n, y, type = "l")
-
+}
+plot(1:300, y[1:300], type = "l", xlab = "Time", ylab = "Xt", main = "Simulated MMAR(2,2)")
+plot(1:300, state[1:300], type = "l", xlab = "Time", ylab = "State" , main = "Markov Chain")
 ```
 
 ## Part 2
