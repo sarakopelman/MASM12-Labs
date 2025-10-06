@@ -287,11 +287,8 @@ b_setar <- seq(a_setar, b_max_setar, length.out = 500)
 
 lambda_setar <- ifelse(b_setar < 0,
                        3*(b_setar - a_setar) + 0.4*(b_setar^2 - a_setar^2),
-                       ifelse(b_setar == 0,
-                              3*(0 - a_setar) + 0.4*(0^2 - a_setar^2),
-                              (3*(0 - a_setar) + 0.4*(0^2 - a_setar^2)) +
-                                (-3*(b_setar - 0) - 0.4*(b_setar^2 - 0^2))
-                       )
+                       3*(0 - a_setar) + 0.4*(0^2 - a_setar^2) +
+                       (-3*(b_setar - 0) - 0.4*(b_setar^2 - 0^2))
 )
 
 plot(b_setar, lambda_setar, type="l", lwd=2, col="blue",
@@ -323,14 +320,14 @@ a_setar_large <- -20
 b_max_setar_large <- 20
 b_setar_large <- seq(a_setar_large, b_max_setar_large, length.out = 1000)
 
-lambda_setar_large <- ifelse(b_setar_large < 0,
-                             3*(b_setar_large - a_setar_large) + 0.4*(b_setar_large^2 - a_setar_large^2),
-                             ifelse(b_setar_large == 0,
-                                    3*(0 - a_setar_large) + 0.4*(0^2 - a_setar_large^2),
-                                    (3*(0 - a_setar_large) + 0.4*(0^2 - a_setar_large^2)) +
-                                      (-3*(b_setar_large - 0) - 0.4*(b_setar_large^2 - 0^2))
-                             )
+lambda_setar_large <- ifelse(
+  b_setar_large < 0,
+  3 * (b_setar_large - a_setar_large) + 0.4 * (b_setar_large^2 - a_setar_large^2),
+  # b >= 0
+  3 * (0 - a_setar_large) + 0.4 * (0^2 - a_setar_large^2) +
+    (-3 * (b_setar_large - 0) - 0.4 * (b_setar_large^2 - 0^2))
 )
+
 
 plot(b_setar_large, lambda_setar_large, type="l", lwd=2, col="blue",
      xlab="b", ylab=expression(Lambda(b)),
@@ -383,7 +380,7 @@ simulate_setar <- function(n){
 # -------------------------
 # 2️⃣ Cumulative means function
 # -------------------------
-cumulative_mean <- function(x, n.bin = 21){
+cumulative_mean <- function(x, n.bin = 19){
   a <- min(x)
   b_max <- max(x)
   breaks <- seq(a, b_max, length.out = n.bin + 1)
@@ -408,17 +405,139 @@ cumulative_mean <- function(x, n.bin = 21){
   for(i in 1:n.bin) h.hat[i] <- gamma[i] / f.hat[i]
   H.hat <- cumsum(h.hat * h)
   H.hat.b <- H.hat[n.bin]
-  c.alpha <- 1.273
+  c.alpha <- 1.273b
   Lambda.lower <- Lambda - c.alpha * n.bin^(-0.5) * sqrt(H.hat.b) * (1 + H.hat/H.hat.b)
   Lambda.upper <- Lambda + c.alpha * n.bin^(-0.5) * sqrt(H.hat.b) * (1 + H.hat/H.hat.b)
   
   # Bin centers
   b <- head(breaks, -1) + h/2
-  list(b = b, Lambda = Lambda, Lambda.lower = Lambda.lower, Lambda.upper = Lambda.upper, a = a)
+  list(b = b, Lambda = Lambda, Lambda.lower = Lambda.lower, Lambda.upper = Lambda.upper, a = a, n.bin = n.bin)
 }
 
 # -------------------------
-# 3️⃣ Theoretical cumulative mean (3-piece integral)
+# 3️⃣ Theoretical cumulative mean
+# -------------------------
+theoretical_lambda <- function(b, a){
+  Lambda_theor <- numeric(length(b))
+  for(i in seq_along(b)){
+    bi <- b[i]
+    if(bi < 0){
+      Lambda_theor[i] <- 3*(bi - a) + 0.4*(bi^2 - a^2)
+    } else if(a < 0 & bi >= 0){
+      left_part  <- 3*(0 - a) + 0.4*(0^2 - a^2)
+      right_part <- -3*(bi - 0) - 0.4*(bi^2 - 0^2)
+      Lambda_theor[i] <- left_part + right_part
+    } else {
+      Lambda_theor[i] <- -3*(bi - a) - 0.4*(bi^2 - a^2)
+    }
+  }
+  return(Lambda_theor)
+}
+
+# -------------------------
+# 4️⃣ Sample sizes and bin counts
+# -------------------------
+n_list <- c(1000, 5000, 10000)
+n_bin_list <- c(19, 19, 19)  # one bin count per sample size
+colors <- c("blue", "red", "green")
+
+# -------------------------
+# 5️⃣ Plot as subplots
+# -------------------------
+par(mfrow = c(1, length(n_list)), mar = c(4,4,3,1))  # 1 row, 3 columns
+
+for(i in seq_along(n_list)){
+  x <- simulate_setar(n_list[i])
+  res <- cumulative_mean(x, n.bin = n_bin_list[i])  # use corresponding bin size
+  lambda_theor <- theoretical_lambda(res$b, res$a)
+  
+  # Set limits consistently
+  ylim_all <- range(c(res$Lambda, res$Lambda.lower, res$Lambda.upper, lambda_theor))
+  
+  plot(res$b, res$Lambda, type = "l", col = colors[i], lwd = 2,
+       ylim = ylim_all,
+       xlab = expression(X[t-1]), ylab = "Cumulative mean",
+       main = paste("n =", n_list[i]))
+  lines(res$b, res$Lambda.lower, col = colors[i], lty = 2)
+  lines(res$b, res$Lambda.upper, col = colors[i], lty = 2)
+  lines(res$b, lambda_theor, col = "black", lty = 3, lwd = 1.5)
+  
+  legend("topright",
+         legend = c("Empirical", "Lower/Upper CI", "Theoretical"),
+         col = c(colors[i], colors[i], "black"),
+         lwd = c(2,1,1.5), lty = c(1,2,3), bty = "n", cex = 0.8)
+}
+
+
+```
+```{r}
+set.seed(7)
+
+# -------------------------
+# 1️⃣ Simulate SETAR(2,1,1)
+# -------------------------
+simulate_setar <- function(n){
+  r <- rnorm(n, sd = 1)
+  x <- rep(NA, n)
+  x[1] <- r[1]
+  for(t in 2:n){
+    if(x[t-1] < 0){
+      x[t] <- 3 + 0.8 * x[t-1] + r[t]
+    } else {
+      x[t] <- -3 - 0.8 * x[t-1] + r[t]
+    }
+  }
+  return(x)
+}
+
+# -------------------------
+# 2️⃣ Cumulative means function (central region)
+# -------------------------
+cumulative_mean_central <- function(x, n.bin = 51, x_range = c(-2,2), min_points = 5){
+  # Only keep points in the central region
+  x_cond <- x[-length(x)]
+  x_next <- x[-1]
+  idx <- which(x_cond >= x_range[1] & x_cond <= x_range[2])
+  x_cond <- x_cond[idx]
+  x_next <- x_next[idx]
+  
+  # Create bins
+  breaks <- seq(x_range[1], x_range[2], length.out = n.bin + 1)
+  h <- diff(breaks)[1]
+  
+  # Split data into bins
+  L <- split(x_next, cut(x_cond, breaks))
+  
+  lambda <- gamma <- f.hat <- h.hat <- numeric(n.bin)
+  
+  for(i in 1:n.bin){
+    x.bin <- L[[i]]
+    
+    # Warning if bin has too few points
+    if(length(x.bin) < min_points){
+      warning(sprintf("Bin %d has less than %d points (%d points)", i, min_points, length(x.bin)))
+    }
+    
+    lambda[i] <- mean(x.bin, na.rm = TRUE)
+    f.hat[i] <- length(x.bin) / (n.bin * h)
+    gamma[i] <- if(length(x.bin) > 0) sum((x.bin - lambda[i])^2, na.rm = TRUE) / length(x.bin) else 0
+  }
+  
+  # Cumulative mean and confidence bands
+  Lambda <- cumsum(lambda * h)
+  for(i in 1:n.bin) h.hat[i] <- gamma[i] / f.hat[i]
+  H.hat <- cumsum(h.hat * h)
+  H.hat.b <- H.hat[n.bin]
+  c.alpha <- 1.273
+  Lambda.lower <- Lambda - c.alpha * n.bin^(-0.5) * sqrt(H.hat.b) * (1 + H.hat/H.hat.b)
+  Lambda.upper <- Lambda + c.alpha * n.bin^(-0.5) * sqrt(H.hat.b) * (1 + H.hat/H.hat.b)
+  
+  b <- head(breaks, -1) + h/2
+  list(b = b, Lambda = Lambda, Lambda.lower = Lambda.lower, Lambda.upper = Lambda.upper)
+}
+
+# -------------------------
+# 3️⃣ Theoretical cumulative mean
 # -------------------------
 theoretical_lambda <- function(b, a){
   Lambda_theor <- numeric(length(b))
@@ -436,43 +555,46 @@ theoretical_lambda <- function(b, a){
 }
 
 # -------------------------
-# 4️⃣ Explore different sample sizes
+# 4️⃣ Compare different bin sizes (same large sample)
 # -------------------------
-n_list <- c(1000, 5000, 10000)
-colors <- c("red","blue","green")
+n_large <- 10 0000
+x_range <- c(-2, 2)
+x <- simulate_setar(n_large)
+bin_sizes <- c(23, 50, 100, 300)
 
-# Determine overall plotting range using large sample
-x_tmp <- simulate_setar(max(n_list))
-res_tmp <- cumulative_mean(x_tmp)
-lambda_theor_tmp <- theoretical_lambda(res_tmp$b, res_tmp$a)
-ylim_all <- range(c(lambda_theor_tmp))
+# Compute results for each bin size
+res_list <- lapply(bin_sizes, function(nb) cumulative_mean_central(x, n.bin = nb, x_range = x_range, min_points = 5))
 
-# Plot setup
-plot(NA, xlim = range(res_tmp$b), ylim = ylim_all,
-     xlab = expression(X[t-1]), ylab = "Cumulative mean", type = "n",
-     main = "Cumulative Means vs Theoretical Curve")
+# Determine consistent y-limits across plots
+ylim_all <- range(unlist(lapply(res_list, function(r) c(r$Lambda.lower, r$Lambda.upper))))
 
-# Overlay theoretical cumulative mean
-lines(res_tmp$b, theoretical_lambda(res_tmp$b, res_tmp$a), col = "black", lwd = 2, lty = 2)
-
-# Empirical curves for each sample size
-for(i in seq_along(n_list)){
-  x <- simulate_setar(n_list[i])
-  res <- cumulative_mean(x)
-  lines(res$b, res$Lambda, col = colors[i], lwd = 2)
-  lines(res$b, res$Lambda.lower, col = colors[i], lty = 2)
-  lines(res$b, res$Lambda.upper, col = colors[i], lty = 2)
+# Plot results
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+for(i in seq_along(bin_sizes)){
+  res <- res_list[[i]]
+  plot(NA, xlim = x_range, ylim = ylim_all,
+       xlab = expression(X[t-1]), ylab = "Cumulative mean", type = "n",
+       main = paste("n.bin =", bin_sizes[i]))
+  
+  polygon(c(res$b, rev(res$b)),
+          c(res$Lambda.lower, rev(res$Lambda.upper)),
+          col = adjustcolor("blue", alpha.f = 0.2),
+          border = NA)
+  
+  lines(res$b, res$Lambda, col = "blue", lwd = 2)
+  
+  b_theor <- seq(x_range[1], x_range[2], length.out = 101)
+  lines(b_theor, theoretical_lambda(b_theor, x_range[1]), col = "black", lwd = 2, lty = 2)
+  
+  legend("topright", legend = c("Empirical", "Theoretical"),
+         col = c("blue","black"), lwd = 2, lty = c(1,2), bty = "n")
 }
-
-# Legend
-legend("topright", legend = c(paste("n =", n_list), "Theoretical"),
-       col = c(colors, "black"), lwd = 2, lty = c(rep(1, length(n_list)), 2), bty = "n")
 
 
 ```
-
 ```{r}
 ## Compare with AR(1) using cumulative means
+set.seed(5)
 n <- 1000
 phi <- -0.8
 x <- numeric(n)
