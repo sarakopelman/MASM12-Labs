@@ -1,0 +1,270 @@
+---
+title: "CE2"
+format: html
+editor: visual
+---
+
+## 
+
+# Part 1
+
+## Simulated IGAR
+
+```{r}
+set.seed(41)
+n <- 3100
+a0 <- 1
+a1 <- 0.3
+b0 <- 1
+b1 <- -0.8
+p <- 0.3
+
+r <- rnorm(n)
+y <- rep(NA,n)
+y[1] <- r[1]
+for(t in 2:n)
+  {
+    if(rbinom(1,1,p) == 1)
+      {
+        y[t] <- a0 + a1 * y[t-1] + r[t]
+      }
+    else
+      {
+        y[t] <- b0 + b1* y[t-1] + r[t]
+      }
+}
+
+y <- tail(y, -100)
+
+ts.plot(y, main = "Simulated IGAR(2,1)", ylab = expression(y[t]))
+```
+
+Conditional mean
+
+$$
+E_\theta[y_t | y_{t-1}] = p (1 + ay_{t-1}) + (1-p)(1 + by_{t-1}).
+$$
+
+## Parameter Estimation of a and b
+
+```{r}
+RSSa1b1 <- function(theta) {
+    n <- length(y)
+    a1 <- theta[1]
+    b1 <- theta[2]
+    
+    Q <- 0
+    for (t in 2:n) {
+        mean = p*(a0 + a1*y[t-1]) + (1-p)*(b0+b1*y[t-1])
+        Q <- Q + (y[t] - mean)^2
+    }
+    return(Q)
+}
+optim(c(0.1, 0.1), RSSa1b1)
+```
+
+## Estimation of p
+
+```{r}
+RSSp <- function(theta) {
+    n <- length(y)
+    p <- theta[1]
+    
+    Q <- 0
+    for (t in 2:n) {
+        mean = p*(a0 + a1*y[t-1]) + (1-p)*(b0+b1*y[t-1])
+        Q <- Q + (y[t] - mean)^2
+    }
+    return(Q)
+}
+
+optim(c(0.5), RSSp, method='Brent', lower=0, upper=1)
+```
+
+## Full estimation
+
+```{r}
+RSSall <- function(theta) {
+    n <- length(y)
+    a0 <- theta[1]
+    a1 <- theta[2]
+    b0 <- theta[3]
+    b1 <- theta[4]
+    #p <- theta[5]
+
+    
+    Q <- 0
+    for (t in 2:n) {
+        mean = p*(a0 + a1*y[t-1]) + (1-p)*(b0+b1*y[t-1])
+        Q <- Q + (y[t] - mean)^2
+    }
+    return(Q)
+}
+
+optim(c(0.5, 0.5, 0.5, 0.5), RSSall)
+```
+
+Doesn't get much better going from 1e3 to 1e4 samples!
+
+# Part 2
+
+```{r}
+RSSa1b1 <- function(theta, y) {
+    n <- length(y)
+    a1 <- theta[1]
+    b1 <- theta[2]
+    
+    Q <- 0
+    for (t in 2:n) {
+        mean = p*(a0 + a1*y[t-1]) + (1-p)*(b0+b1*y[t-1])
+        Q <- Q + (y[t] - mean)^2
+    }
+    return(Q)
+}
+
+ysub <- y[1001:1030]
+
+steps <- 100
+# Create grid of points
+X <- seq(0, 1, length.out = steps)
+Y <- seq(-1, 0, length.out = steps)
+
+# Evaluate RSSa1b1 over grid
+Z <- outer(X, Y, Vectorize(function(h, t) RSSa1b1(c(h, t), ysub)))
+
+filled.contour(
+  X, Y, Z,
+  #color.palette = terrain.colors,
+  xlab = expression(a[1]),
+  ylab = expression(b[1]),
+  main = expression(paste("RSS(", a[1], ", ", b[1], ")")),
+  nlevels = 30,
+  color.palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000"))
+)
+```
+
+# Part 3
+
+```{r}
+n=1000
+sigmae<-3
+sigmac <- 0.1
+e <- rnorm(n,0,sigmae)
+c <- rnorm(n,0,sigmac)
+mu <- 0
+phi <- -0.01
+Phi <- numeric(n)
+Phi[1] <- 0.1
+y <- numeric(n)
+y[1] <- e[1]
+
+
+for( t in 2:n) {
+    Phi[t] <- phi*Phi[t-1]+mu*(1-phi)+c[t]
+    y[t] <- Phi[t]*y[t-1]+e[t]
+    
+    
+}
+    
+plot(Phi, type='l')
+plot(y, type='l')
+```
+
+# Part 4
+
+```{r}
+a <- 0.4
+sim_length <- 1000
+num_sims <- 20
+process_var <- 1
+obs_var <- 1
+
+sims <- vector(mode='list', length=num_sims)
+for (i in 1:num_sims) {
+    sim <- numeric(length=sim_length)
+    sim[1] <- rnorm(1, mean=0, sd=sqrt(process_var))
+    for (j in 2:sim_length) {
+        sim[j] <- a * sim[j-1] + rnorm(1, mean=0, sd=sqrt(process_var))
+    }
+    sims[[i]] = sim + rnorm(sim_length, mean=0, sd=sqrt(obs_var))
+}
+
+plot(sims[[1]], type='l')
+```
+
+```{r}
+a_var <- 1
+process_var <- 1
+R1 <- matrix(c(process_var, 0, 0, 0), nrow=2, ncol=2)
+
+x = matrix(nrow=2, ncol=sim_length)
+x[1,1] <- rnorm(1, mean=0, sd=sqrt(process_var))
+x[2,1] <- rnorm(1, mean=0, sd=sqrt(a_var))
+P <- matrix(c(process_var, 0, 0, a_var), nrow=2, ncol=2)
+f <- function(x) { return(matrix(c(x[1]*x[2], x[2])))}
+F <- function(x) { return(matrix(c(x[2], 0, x[1], 1), ncol=2, nrow=2)) }
+h <- function(x) { return(x[1]) }
+H <- function (x) { return(matrix(c(1, 0), ncol=2)) }
+    
+i = 1
+for (t in 2:sim_length) {
+    xt = f(x[, t-1])
+    P = F(x[,t-1]) %*% P %*% t(F(x[,t-1])) + R1
+    
+    res = sims[[i]][t] - xt[1]
+    K = P %*% t(H(x[,t-1])) %*% solve(H(x[,t-1]) %*% P %*% t(H(x[,t-1])) + obs_var)
+    xt = xt + K * res
+    P = (diag(2) - K %*% H(x[,t-1])) %*% P
+    
+    x[,t] = xt
+}
+
+par(mfrow = c(2, 1),        # two rows, one column
+    mar = c(4, 4, 2, 1))    # smaller margins
+
+plot(x[1, ], type = "l", col = "steelblue", lwd = 2,
+     main = expression("State 1: " ~ x[1]),
+     xlab = "Time", ylab = "x[1]")
+
+plot(x[2, ], type = "l", col = "darkred", lwd = 2,
+     main = expression("State 2: " ~ x[2]),
+     xlab = "Time", ylab = "x[2]")
+abline(h = 0.4)
+```
+
+```{r}
+estimate_a <- function(data) {
+    burn_in <- 500
+    a_var <- 1
+    R1 <- matrix(c(process_var, 0, 0, 0), nrow=2, ncol=2)
+    
+    x = matrix(nrow=2, ncol=sim_length)
+    x[1,1] <- rnorm(1, mean=0, sd=sqrt(process_var))
+    x[2,1] <- rnorm(1, mean=0, sd=sqrt(a_var))
+    P <- matrix(c(process_var, 0, 0, a_var), nrow=2, ncol=2)
+    f <- function(x) { return(matrix(c(x[1]*x[2], x[2])))}
+    F <- function(x) { return(matrix(c(x[2], 0, x[1], 1), ncol=2, nrow=2)) }
+    h <- function(x) { return(x[1]) }
+    H <- function (x) { return(matrix(c(1, 0), ncol=2)) }
+        
+    for (t in 2:sim_length) {
+        xt = f(x[, t-1])
+        P = F(x[,t-1]) %*% P %*% t(F(x[,t-1])) + R1
+        
+        res = data[t] - xt[1]
+        K = P %*% t(H(x[,t-1])) %*% solve(H(x[,t-1]) %*% P %*% t(H(x[,t-1])) + obs_var)
+        xt = xt + K * res
+        P = (diag(2) - K %*% H(x[,t-1])) %*% P
+        
+        x[,t] = xt
+    }
+    return(mean(x[2,burn_in:sim_length]))
+}
+
+estimates <- numeric(20)
+for (i in 1:20) {
+  estimates[i] <- estimate_a(sims[[i]])
+}
+quantile(estimates, probs = c(0.025, 0.5, 0.975))
+boxplot(estimates, horizontal = TRUE)
+```
