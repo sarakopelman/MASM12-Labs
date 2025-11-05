@@ -11,31 +11,32 @@ editor: visual
 ## Simulated SETAR
 
 ```{r}
+set.seed(132)
 n <- 3100
 r <- rnorm(n)
-a0 <- 3
-a1 <- 0.8
-b0 <- -3
-b1 <- -0.8
+a0_S <- 3
+a1_S <- 0.8
+b0_S <- -3
+b1_S <- -0.8
 thr <- 0
 ## Make a time series y with a regime model
-y <- rep(NA,n)
-y[1] <- r[1]
+y_S <- rep(NA,n)
+y_S[1] <- r[1]
 for(t in 2:n)
   {
-    if(y[t-1] <= thr)
+    if(y_S[t-1] <= thr)
       {
-        y[t] <- a0 + a1 * y[t-1] + r[t]
+        y_S[t] <- a0_S + a1_S * y_S[t-1] + r[t]
       }
     else
       {
-        y[t] <- b0 + b1 * y[t-1] + r[t]
+        y_S[t] <- b0_S + b1_S * y_S[t-1] + r[t]
       }
   }
 
-y <- tail(y, -100)
+y_S <- tail(y_S, -100)
 
-ts.plot(y, main = "Simulated SETAR(2,1,1)", ylab = expression(y[t]))
+ts.plot(y_S, main = "Simulated SETAR(2,1,1)", ylab = expression(y_S[t]))
 ```
 
 Conditional mean
@@ -44,25 +45,26 @@ $$
 E_\theta[y_t | y_{t-1}] = (a_0 + a_1y_{t-1})\times1_{y<0} + (b_0 + b_1y_{t-1})\times1_{y\geq0}.
 $$
 
-## Parameter Estimation of a and b, SETAR
+## Parameter Estimation of a1 and b1, SETAR
 
 ```{r}
+
 RSSa1b1_SETAR <- function(theta) {
-    n <- length(y)
-    a1 <- theta[1]
-    b1 <- theta[2]
+    n <- length(y_S)
+    a1_S <- theta[1]
+    b1_S <- theta[2]
     
     Q <- 0
     for (t in 2:n) {
-      if(y[t-1] <= thr)
+      if(y_S[t-1] <= thr)
       {
-        mean <- a0 + a1 * y[t-1] 
+        mean <- a0_S + a1_S * y_S[t-1] 
       }
     else
       {
-        mean <- b0 + b1 * y[t-1] 
+        mean <- b0_S + b1_S * y_S[t-1] 
       }
-        Q <- Q + (y[t] - mean)^2
+        Q <- Q + (y_S[t] - mean)^2
     }
     return(Q)
 }
@@ -73,54 +75,54 @@ optim(c(0.5, 0.5), RSSa1b1_SETAR)
 ## Estimation of threshold
 
 ```{r}
-RSSa1b1_SETAR <- function(theta) {
-    n <- length(y)
+RSSthr_SETAR <- function(theta) {
+    n <- length(y_S)
     thr <- theta[1]
 
     Q <- 0
     for (t in 2:n) {
-      if(y[t-1] <= thr)
+      if(y_S[t-1] <= thr)
       {
-        mean <- a0 + a1 * y[t-1] 
+        mean <- a0_S + a1_S * y_S[t-1] 
       }
     else
       {
-        mean <- b0 + b1 * y[t-1] 
+        mean <- b0_S + b1_S * y_S[t-1] 
       }
-        Q <- Q + (y[t] - mean)^2
+        Q <- Q + (y_S[t] - mean)^2
     }
     return(Q)
 }
-optim(c(1), RSSa1b1_SETAR, method = 'Brent', lower = min(y), upper = max(y))
+optim(c(1), RSSthr_SETAR, method = 'Brent', lower = min(y_S), upper = max(y_S))
 
 ```
 
 ## Full estimation
 
 ```{r}
-RSSa1b1_SETAR <- function(theta) {
-    n <- length(y)
-    a0 <- theta[1]
-    a1 <- theta[2]
-    b0 <- theta[3]
-    b1 <- theta[4]
+RSSall_SETAR <- function(theta) {
+    n <- length(y_S)
+    a0_S <- theta[1]
+    a1_S <- theta[2]
+    b0_S <- theta[3]
+    b1_S <- theta[4]
     thr <- theta[5]
     
     Q <- 0
     for (t in 2:n) {
-      if(y[t-1] <= thr)
+      if(y_S[t-1] <= thr)
       {
-        mean <- a0 + a1 * y[t-1] 
+        mean <- a0_S + a1_S * y_S[t-1] 
       }
     else
       {
-        mean <- b0 + b1 * y[t-1] 
+        mean <- b0_S + b1_S * y_S[t-1] 
       }
-        Q <- Q + (y[t] - mean)^2
+        Q <- Q + (y_S[t] - mean)^2
     }
     return(Q)
 }
-optim(c(0.5, 0.5, 0.5, 0.5, 0.5), RSSa1b1_SETAR)
+optim(c(0.5, 0.5, 0.5, 0.5, 0.5), RSSall_SETAR)
 ```
 
 ```         
@@ -131,30 +133,30 @@ optim(c(0.5, 0.5, 0.5, 0.5, 0.5), RSSa1b1_SETAR)
 ```{r}
 set.seed(41)
 n <- 3100
-a0 <- 3
-a1 <- 0.8
-b0 <- -1
-b1 <- -0.2
+a0_I <- 3
+a1_I <- 0.8
+b0_I <- -1
+b1_I <- -0.2
 p <- 0.3
 
 r <- rnorm(n)
-y <- rep(NA,n)
-y[1] <- r[1]
+y_I <- rep(NA,n)
+y_I[1] <- r[1]
 for(t in 2:n)
   {
     if(rbinom(1,1,p) == 1)
       {
-        y[t] <- a0 + a1 * y[t-1] + r[t]
+        y_I[t] <- a0_I + a1_I * y_I[t-1] + r[t]
       }
     else
       {
-        y[t] <- b0 + b1* y[t-1] + r[t]
+        y_I[t] <- b0_I + b1_I * y_I[t-1] + r[t]
       }
 }
 
-y <- tail(y, -100)
+y_I <- tail(y_I, -100)
 
-ts.plot(y, main = "Simulated IGAR(2,1)", ylab = expression(y[t]))
+ts.plot(y_I, main = "Simulated IGAR(2,1)", ylab = expression(y_I[t]))
 ```
 
 Conditional mean
@@ -166,105 +168,166 @@ $$
 ## Parameter Estimation of a and b, IGAR
 
 ```{r}
-RSSa1b1 <- function(theta) {
-    n <- length(y)
-    a1 <- theta[1]
-    b1 <- theta[2]
+RSSa1b1_IGAR <- function(theta) {
+    n <- length(y_I)
+    a1_I <- theta[1]
+    b1_I <- theta[2]
     
     Q <- 0
     for (t in 2:n) {
-        mean = p*(a0 + a1*y[t-1]) + (1-p)*(b0+b1*y[t-1])
-        Q <- Q + (y[t] - mean)^2
+        mean = p*(a0_I + a1_I*y_I[t-1]) + (1-p)*(b0_I+b1_I*y_I[t-1])
+        Q <- Q + (y_I[t] - mean)^2
     }
     return(Q)
 }
-optim(c(0.5, 0.5), RSSa1b1)
+optim(c(0.5, 0.5), RSSa1b1_IGAR)
 ```
 
 ## Estimation of p
 
 ```{r}
-RSSp <- function(theta) {
-    n <- length(y)
+RSSp_IGAR <- function(theta) {
+    n <- length(y_I)
     p <- theta[1]
     
     Q <- 0
     for (t in 2:n) {
-        mean = p*(a0 + a1*y[t-1]) + (1-p)*(b0+b1*y[t-1])
-        Q <- Q + (y[t] - mean)^2
+        mean = p*(a0_I + a1_I * y_I[t-1]) + (1-p) * (b0_I + b1_I * y_I[t-1])
+        Q <- Q + (y_I[t] - mean)^2
     }
     return(Q)
 }
 
-optim(c(0.5), RSSp, method='Brent', lower=0, upper=1)
+optim(c(0.5), RSSp_IGAR, method='Brent', lower=0, upper=1)
 ```
 
 ## Full estimation
 
 ```{r}
-RSSall <- function(theta) {
-    n <- length(y)
-    a0 <- theta[1]
-    a1 <- theta[2]
-    b0 <- theta[3]
-    b1 <- theta[4]
+RSSall_IGAR <- function(theta) {
+    n <- length(y_I)
+    a0_I <- theta[1]
+    a1_I <- theta[2]
+    b0_I <- theta[3]
+    b1_I <- theta[4]
     p <- theta[5]
 
     
     Q <- 0
     for (t in 2:n) {
-        mean = p*(a0 + a1*y[t-1]) + (1-p)*(b0+b1*y[t-1])
-        Q <- Q + (y[t] - mean)^2
+        mean = p*(a0_I + a1_I*y_I[t-1]) + (1-p)*(b0_I+b1_I*y_I[t-1])
+        Q <- Q + (y_I[t] - mean)^2
     }
     return(Q)
 }
 
-optim(c(0.5, 0.5, 0.5, 0.5, 0.5), RSSall)
+optim(c(0.5, 0.5, 0.5, 0.5, 0.5), RSSall_IGAR)
 ```
-
-Doesn't get much better going from 1e3 to 1e4 samples!
 
 # Part 2
 
 ## SETAR
 
-
-
-
-## IGAR
 ```{r}
-RSSa1b1 <- function(theta, y) {
-    n <- length(y)
-    a1 <- theta[1]
-    b1 <- theta[2]
+# Function for estimating unknown parameters
+
+RSSa1b1_SETAR <- function(theta, y_S) {
+    n <- length(y_S)
+    a1_S <- theta[1]
+    b1_S <- theta[2]
     
     Q <- 0
     for (t in 2:n) {
-        mean = p*(a0 + a1*y[t-1]) + (1-p)*(b0+b1*y[t-1])
-        Q <- Q + (y[t] - mean)^2
+      if(y_S[t-1] <= thr)
+      {
+        mean <- a0_S + a1_S * y_S[t-1] 
+      }
+    else
+      {
+        mean <- b0_S + b1_S * y_S[t-1] 
+      }
+        Q <- Q + (y_S[t] - mean)^2
     }
     return(Q)
 }
 
-ysub <- y[1001:1030]
+# Sub intervals of y
+
+ysub <- list(
+ysub1 <- y_S[1:3000],
+ysub2 <- y_S[1:300],
+ysub3 <- y_S[1:30],
+ysub4 <- y_S[1001:1300],
+ysub5 <- y_S[1001:1030]
+)
+names(ysub) <- paste0("ysub", seq_along(ysub))
 
 steps <- 100
 # Create grid of points
 X <- seq(0, 1, length.out = steps)
 Y <- seq(-1, 0, length.out = steps)
 
-# Evaluate RSSa1b1 over grid
-Z <- outer(X, Y, Vectorize(function(h, t) RSSa1b1(c(h, t), ysub)))
+# Evaluate RSSa1b1 over grid for all ysub
 
-filled.contour(
-  X, Y, Z,
-  #color.palette = terrain.colors,
-  xlab = expression(a[1]),
-  ylab = expression(b[1]),
-  main = expression(paste("RSS(", a[1], ", ", b[1], ")")),
-  nlevels = 30,
-  color.palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000"))
+for (i in 1:length(ysub)) {
+
+  Zi <- outer(X, Y, Vectorize(function(h, t) RSSa1b1_SETAR(c(h, t), ysub[[i]])))
+
+  filled.contour(
+    X, Y, Zi,
+    xlab = expression(a[1]),
+    ylab = expression(b[1]),
+    main = bquote("RSS(" * a[1] * ", " * b[1] * ") for " * .(names(ysub)[i])),
+    nlevels = 30,
+    color.palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000"))
 )
+}
+```
+
+
+## IGAR
+```{r}
+# Function for estimating unknown parameters
+RSSa1b1_IGAR <- function(theta, y_I) {
+    n <- length(y_I)
+    a1_I <- theta[1]
+    b1_I <- theta[2]
+    
+    Q <- 0
+    for (t in 2:n) {
+        mean = p*(a0_I + a1_I*y_I[t-1]) + (1-p)*(b0_I+b1_I*y_I[t-1])
+        Q <- Q + (y_I[t] - mean)^2
+    }
+    return(Q)
+}
+
+ysub <- list(
+ysub1 <- y_I[1:3000],
+ysub2 <- y_I[1:300],
+ysub3 <- y_I[1:30],
+ysub4 <- y_I[1001:1300],
+ysub5 <- y_I[1001:1030]
+)
+names(ysub) <- paste0("ysub", seq_along(ysub))
+
+steps <- 100
+# Create grid of points
+X <- seq(0, 1, length.out = steps)
+Y <- seq(-1, 0, length.out = steps)
+
+for (i in 1:length(ysub)) {
+  # Evaluate RSSa1b1 over grid
+  Zi <- outer(X, Y, Vectorize(function(h, t) RSSa1b1_IGAR(c(h, t), ysub[[i]])))
+
+  filled.contour(
+    X, Y, Zi,
+    xlab = expression(a[1]),
+    ylab = expression(b[1]),
+    main = bquote("RSS(" * a[1] * ", " * b[1] * ") for " * .(names(ysub)[i])),
+    nlevels = 30,
+    color.palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000"))
+)
+}
 ```
 
 # Part 3
