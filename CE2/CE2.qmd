@@ -8,15 +8,133 @@ editor: visual
 
 # Part 1
 
+## Simulated SETAR
+
+```{r}
+n <- 3100
+r <- rnorm(n)
+a0 <- 3
+a1 <- 0.8
+b0 <- -3
+b1 <- -0.8
+thr <- 0
+## Make a time series y with a regime model
+y <- rep(NA,n)
+y[1] <- r[1]
+for(t in 2:n)
+  {
+    if(y[t-1] <= thr)
+      {
+        y[t] <- a0 + a1 * y[t-1] + r[t]
+      }
+    else
+      {
+        y[t] <- b0 + b1 * y[t-1] + r[t]
+      }
+  }
+
+y <- tail(y, -100)
+
+ts.plot(y, main = "Simulated SETAR(2,1,1)", ylab = expression(y[t]))
+```
+
+Conditional mean
+
+$$
+E_\theta[y_t | y_{t-1}] = (a_0 + a_1y_{t-1})\times1_{y<0} + (b_0 + b_1y_{t-1})\times1_{y\geq0}.
+$$
+
+## Parameter Estimation of a and b, SETAR
+
+```{r}
+RSSa1b1_SETAR <- function(theta) {
+    n <- length(y)
+    a1 <- theta[1]
+    b1 <- theta[2]
+    
+    Q <- 0
+    for (t in 2:n) {
+      if(y[t-1] <= thr)
+      {
+        mean <- a0 + a1 * y[t-1] 
+      }
+    else
+      {
+        mean <- b0 + b1 * y[t-1] 
+      }
+        Q <- Q + (y[t] - mean)^2
+    }
+    return(Q)
+}
+optim(c(0.5, 0.5), RSSa1b1_SETAR)
+
+```
+
+## Estimation of threshold
+
+```{r}
+RSSa1b1_SETAR <- function(theta) {
+    n <- length(y)
+    thr <- theta[1]
+
+    Q <- 0
+    for (t in 2:n) {
+      if(y[t-1] <= thr)
+      {
+        mean <- a0 + a1 * y[t-1] 
+      }
+    else
+      {
+        mean <- b0 + b1 * y[t-1] 
+      }
+        Q <- Q + (y[t] - mean)^2
+    }
+    return(Q)
+}
+optim(c(1), RSSa1b1_SETAR, method = 'Brent', lower = min(y), upper = max(y))
+
+```
+
+## Full estimation
+
+```{r}
+RSSa1b1_SETAR <- function(theta) {
+    n <- length(y)
+    a0 <- theta[1]
+    a1 <- theta[2]
+    b0 <- theta[3]
+    b1 <- theta[4]
+    thr <- theta[5]
+    
+    Q <- 0
+    for (t in 2:n) {
+      if(y[t-1] <= thr)
+      {
+        mean <- a0 + a1 * y[t-1] 
+      }
+    else
+      {
+        mean <- b0 + b1 * y[t-1] 
+      }
+        Q <- Q + (y[t] - mean)^2
+    }
+    return(Q)
+}
+optim(c(0.5, 0.5, 0.5, 0.5, 0.5), RSSa1b1_SETAR)
+```
+
+```         
+```
+
 ## Simulated IGAR
 
 ```{r}
 set.seed(41)
 n <- 3100
-a0 <- 1
-a1 <- 0.3
-b0 <- 1
-b1 <- -0.8
+a0 <- 3
+a1 <- 0.8
+b0 <- -1
+b1 <- -0.2
 p <- 0.3
 
 r <- rnorm(n)
@@ -45,7 +163,7 @@ $$
 E_\theta[y_t | y_{t-1}] = p (1 + ay_{t-1}) + (1-p)(1 + by_{t-1}).
 $$
 
-## Parameter Estimation of a and b
+## Parameter Estimation of a and b, IGAR
 
 ```{r}
 RSSa1b1 <- function(theta) {
@@ -60,7 +178,7 @@ RSSa1b1 <- function(theta) {
     }
     return(Q)
 }
-optim(c(0.1, 0.1), RSSa1b1)
+optim(c(0.5, 0.5), RSSa1b1)
 ```
 
 ## Estimation of p
@@ -90,7 +208,7 @@ RSSall <- function(theta) {
     a1 <- theta[2]
     b0 <- theta[3]
     b1 <- theta[4]
-    #p <- theta[5]
+    p <- theta[5]
 
     
     Q <- 0
@@ -101,13 +219,19 @@ RSSall <- function(theta) {
     return(Q)
 }
 
-optim(c(0.5, 0.5, 0.5, 0.5), RSSall)
+optim(c(0.5, 0.5, 0.5, 0.5, 0.5), RSSall)
 ```
 
 Doesn't get much better going from 1e3 to 1e4 samples!
 
 # Part 2
 
+## SETAR
+
+
+
+
+## IGAR
 ```{r}
 RSSa1b1 <- function(theta, y) {
     n <- length(y)
