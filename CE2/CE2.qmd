@@ -330,6 +330,30 @@ for (i in 1:length(ysub)) {
 }
 ```
 
+## Fitting line of parameters
+
+```{r}
+y_t <- y_I[2:3000] # present value
+y_t1 <- y_I[1:2999] # one lag value
+y_df <- data.frame(y_t, y_t1)
+ols <- lm(y_t ~ y_t1, data = y_df) # ordinary least squares estimate
+b_ols <-  function(a1) (as.numeric(ols$coefficients[2]) - p*a1)/(1-p) # slope estimate as function of a
+
+Z <- outer(X, Y, Vectorize(function(h, t) RSSa1b1_IGAR(c(h, t), ysub[[1]])))
+
+filled.contour(
+  X, Y, Z,
+  xlab = expression(a[1]),
+  ylab = expression(b[1]),
+  main = bquote("RSS(" * a[1] * ", " * b[1] * ") for " * .(names(ysub)[1])),
+  nlevels = 30,
+  color.palette = colorRampPalette(c("#00007F", "blue", "#007FFF", "cyan", "#7FFF7F", "yellow", "#FF7F00", "red", "#7F0000")),
+  plot.axes = {
+    axis(1); axis(2) 
+    lines(X, b_ols(X), lwd=2)} # adding line 
+  )
+```
+
 # Part 3
 
 ```{r}
