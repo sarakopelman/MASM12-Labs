@@ -357,13 +357,17 @@ filled.contour(
 # Part 3
 
 ```{r}
-n=1000
-sigmae <- 3
+set.seed(5)
+n <- 1000
+
+############################################################
+## Example run (mixture)
+sigmae <- 1
 sigmac <- 0.1
 e <- rnorm(n,0,sigmae)
 c <- rnorm(n,0,sigmac)
-mu <- 0.5
-phi <- -0.01
+mu <- 0.1
+phi <- -0.5
 Phi <- numeric(n)
 Phi[1] <- 0.1
 y <- numeric(n)
@@ -374,8 +378,126 @@ for(t in 2:n){
     y[t] <- Phi[t] * y[t-1] + e[t]
 }
 
-plot(100:200, Phi[100:200], type="l", main="Phi (t = 100–200)", xlab="t", ylab="Phi_t")
-plot(100:200, y[100:200],  type="l", main="y (t = 100–200)", xlab="t", ylab="y_t")
+# Save plots
+png("example_Phi_full.png", width=800, height=600)
+plot(1:n, Phi, type="l", main="Phi (full process)", xlab="t", ylab="Phi_t (latent)")
+dev.off()
+
+png("example_y_full.png", width=800, height=600)
+plot(1:n, y,   type="l", main="y (full process)", xlab="t", ylab="y_t (observed)")
+dev.off()
+
+png("example_Phi_zoom.png", width=800, height=600)
+plot(900:1000, Phi[900:1000], type="l", main="Phi (t=900–1000)", xlab="t", ylab="Phi_t (latent)")
+dev.off()
+
+png("example_y_zoom.png", width=800, height=600)
+plot(900:1000, y[900:1000],  type="l", main="y (t=900–1000)", xlab="t", ylab="y_t (observed)")
+dev.off()
+
+############################################################
+## Drift dominates
+sigmae <- 1
+sigmac <- 0.1
+e <- rnorm(n,0,sigmae)
+c <- rnorm(n,0,sigmac)
+mu <- 0.8
+phi <- 0.01
+Phi <- numeric(n)
+Phi[1] <- 0.1
+y <- numeric(n)
+y[1] <- e[1]
+
+for(t in 2:n){
+    Phi[t] <- phi*Phi[t-1] + mu*(1-phi) + c[t]
+    y[t] <- Phi[t] * y[t-1] + e[t]
+}
+
+png("drift_Phi_full.png", width=800, height=600)
+plot(1:n, Phi, type="l", main="Phi (drift dominates, full process)", xlab="t", ylab="Phi_t (latent)")
+dev.off()
+
+png("drift_y_full.png", width=800, height=600)
+plot(1:n, y,   type="l", main="y (drift dominates, full process)", xlab="t", ylab="y_t (observed)")
+dev.off()
+
+png("drift_Phi_zoom.png", width=800, height=600)
+plot(900:1000, Phi[900:1000], type="l", main="Phi (drift dominates, t=900–1000)", xlab="t", ylab="Phi_t (latent)")
+dev.off()
+
+png("drift_y_zoom.png", width=800, height=600)
+plot(900:1000, y[900:1000],  type="l", main="y (drift dominates, t=900–1000)", xlab="t", ylab="y_t (observed)")
+dev.off()
+
+############################################################
+## Phi dominates
+sigmae <- 1
+sigmac <- 0.01
+e <- rnorm(n,0,sigmae)
+c <- rnorm(n,0,sigmac)
+mu <- 0.01
+phi <- 0.9
+Phi <- numeric(n)
+Phi[1] <- 0.9
+y <- numeric(n)
+y[1] <- e[1]
+
+for(t in 2:n){
+    Phi[t] <- phi*Phi[t-1] + mu*(1-phi) + c[t]
+    y[t] <- Phi[t] * y[t-1] + e[t]
+}
+
+png("phi_Phi_full.png", width=800, height=600)
+plot(1:n, Phi, type="l", main="Phi (phi dominates, full process)", xlab="t", ylab="Phi_t (latent)")
+dev.off()
+
+png("phi_y_full.png", width=800, height=600)
+plot(1:n, y,   type="l", main="y (phi dominates, full process)", xlab="t", ylab="y_t (observed)")
+dev.off()
+
+png("phi_Phi_zoom.png", width=800, height=600)
+plot(900:1000, Phi[900:1000], type="l", main="Phi (phi dominates, t=900–1000)", xlab="t", ylab="Phi_t (latent)")
+dev.off()
+
+png("phi_y_zoom.png", width=800, height=600)
+plot(900:1000, y[900:1000],  type="l", main="y (phi dominates, t=900–1000)", xlab="t", ylab="y_t (observed)")
+dev.off()
+
+############################################################
+## Noise dominates
+sigmae <- 1
+sigmac <- 0.8
+e <- rnorm(n,0,sigmae)
+c <- rnorm(n,0,sigmac)
+mu <- 0.01
+phi <- 0.01
+Phi <- numeric(n)
+Phi[1] <- 0.01
+y <- numeric(n)
+y[1] <- e[1]
+
+for(t in 2:n){
+    Phi[t] <- phi*Phi[t-1] + mu*(1-phi) + c[t]
+    y[t] <- Phi[t] * y[t-1] + e[t]
+}
+
+png("noise_Phi_full.png", width=800, height=600)
+plot(1:n, Phi, type="l", main="Phi (noise dominates, full process)", xlab="t", ylab="Phi_t (latent)")
+dev.off()
+
+png("noise_y_full.png", width=800, height=600)
+plot(1:n, y,   type="l", main="y (noise dominates, full process)", xlab="t", ylab="y_t (observed)")
+dev.off()
+
+png("noise_Phi_zoom.png", width=800, height=600)
+plot(900:1000, Phi[900:1000], type="l", main="Phi (noise dominates, t=900–1000)", xlab="t", ylab="Phi_t (latent)")
+dev.off()
+
+png("noise_y_zoom.png", width=800, height=600)
+plot(900:1000, y[900:1000],  type="l", main="y (noise dominates, t=900–1000)", xlab="t", ylab="y_t (observed)")
+dev.off()
+
+
 ```
 
 # Part 4
