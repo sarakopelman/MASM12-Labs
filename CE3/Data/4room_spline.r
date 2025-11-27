@@ -1,8 +1,29 @@
 library(ctsmr)
 library(splines)
-source("CE3/Data/sde4room_base2.r") # change to correct model
+source("CE3/Data/sde4room_spline.r") # change to correct model
 load("CE3/Data/Exercise3.RData")
-fit1 <- sde4room_base2(AllDat) # change to correct model
+Hour <- as.numeric(strftime(AllDat$date, format="%H"))
+
+idx <- (Hour>8 & Hour < 23) # It is impossible to fit a window area for the hours without any sun, so we limit the window area estimation to the hours with sun.
+
+bs = bs(Hour[idx],df=4,intercept=TRUE) 
+
+#bs1 <- bs2 <- bs3 <- bs4 <- bs5 <- bs6 <- numeric(dim(AllDat)[1])
+bs1 <- bs2 <- bs3 <- bs4 <-  numeric(dim(AllDat)[1])
+
+bs1[idx] = bs[,1]
+bs2[idx] = bs[,2]
+bs3[idx] = bs[,3]
+bs4[idx] = bs[,4]
+#bs5[idx] = bs[,5]
+
+AllDat$bs1 = bs1
+AllDat$bs2 = bs2
+AllDat$bs3 = bs3
+AllDat$bs4 = bs4
+#AllDat$bs5 = bs5
+
+fit1 <- sde4room_base3(AllDat) # change to correct model
 
 summary(fit1)
 summary(fit1, extended=TRUE)
@@ -16,7 +37,6 @@ AllDat$res1 <- res1
 AllDat$res2 <- res2
 AllDat$res3 <- res3
 AllDat$res4 <- res4
-Hour <- as.numeric(strftime(AllDat$date, format="%H"))
 
 
 plot(Hour,AllDat$res1, 
@@ -26,13 +46,13 @@ plot(Hour,AllDat$res1,
      main = "Residuals over time")
 
 points(Hour, res2,
-      col  = "red")
+       col  = "red")
 
 points(Hour, res3,
-      col  = "green")
+       col  = "green")
 
 points(Hour, res4,
-      col  = "orange")
+       col  = "orange")
 
 #legend("topright",
 #       legend = c("Ti1", "Ti2"),
@@ -52,3 +72,5 @@ rmse3
 rmse4
 
 acf(res1, lag.max = 30)
+
+

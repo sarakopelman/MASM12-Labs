@@ -49,7 +49,7 @@ fit2 <- sdeTiTm_spline(AllDat,AllDat$yTi4,AllDat$Ph2)
 
 plot(bs[14:27,1]*fit2$xm[3]+bs[14:27,2]*fit2$xm[4]+bs[14:27,3]*fit2$xm[5]+bs[14:27,4]*fit2$xm[6]+bs[14:27,5]*fit2$xm[7],type='l')
 
-summary(fit2, extended = TRUEsumma)
+summary(fit2, extended = TRUE)
 
 Hour <- as.numeric(strftime(AllDat$date, format="%H"))
 
