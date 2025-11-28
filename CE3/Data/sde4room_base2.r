@@ -2,7 +2,7 @@ sde4room_base2 <- function(data){
   # Generate a new object of class ctsm
   model = ctsm()
   model$options$eta <- 0.5*1e-5
-  
+
   # Add a system equation and thereby also a state
   # Gv in Ti: Aw/Ci*Gv or Tm: Aw/Cm*Gv
   model$addSystem(

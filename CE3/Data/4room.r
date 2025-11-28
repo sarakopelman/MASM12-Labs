@@ -34,13 +34,12 @@ points(Hour, res3,
 points(Hour, res4,
       col  = "orange")
 
-#legend("topright",
-#       legend = c("Ti1", "Ti2"),
-#       col    = c("blue", "red"),
-#       lty    = 1,
-#       bty    = "n")
+legend("bottomleft",
+       legend = c("Ti1", "Ti2", "Ti3", "Ti4"),
+       col    = c("blue", "red", "green", "orange"),
+       lty    = 1,
+       bty    = "n")
 
-#rmse1 <- sqrt(mean((Pred[[1]]$state$pred$Ti - AllDat$yTi4)^2))
 rmse1 <- sqrt(mean(res1^2, na.rm = TRUE))
 rmse2 <- sqrt(mean(res2^2, na.rm = TRUE))
 rmse3 <- sqrt(mean(res3^2, na.rm = TRUE))
