@@ -1,8 +1,12 @@
 library(ctsmr)
 library(splines)
-source("CE3/Data/sde4room_base2.r") # change to correct model
+source("CE3/Data/sde4room_R13.r") # change to correct model
 load("CE3/Data/Exercise3.RData")
-fit1 <- sde4room_base2(AllDat) # change to correct model
+Hour <- as.numeric(strftime(AllDat$date, format="%H"))
+
+idx <- (Hour>8 & Hour < 23) # It is impossible to fit a window area for the hours without any sun, so we limit the window area estimation to the hours with sun.
+
+fit1 <- sde4room_R13(AllDat) # change to correct model
 
 summary(fit1)
 summary(fit1, extended=TRUE)
@@ -16,7 +20,6 @@ AllDat$res1 <- res1
 AllDat$res2 <- res2
 AllDat$res3 <- res3
 AllDat$res4 <- res4
-Hour <- as.numeric(strftime(AllDat$date, format="%H"))
 
 
 plot(Hour,AllDat$res1, 
@@ -26,20 +29,21 @@ plot(Hour,AllDat$res1,
      main = "Residuals over time")
 
 points(Hour, res2,
-      col  = "red")
+       col  = "red")
 
 points(Hour, res3,
-      col  = "green")
+       col  = "green")
 
 points(Hour, res4,
-      col  = "orange")
+       col  = "orange")
 
-legend("bottomleft",
-       legend = c("Ti1", "Ti2", "Ti3", "Ti4"),
-       col    = c("blue", "red", "green", "orange"),
-       lty    = 1,
-       bty    = "n")
+#legend("topright",
+#       legend = c("Ti1", "Ti2"),
+#       col    = c("blue", "red"),
+#       lty    = 1,
+#       bty    = "n")
 
+#rmse1 <- sqrt(mean((Pred[[1]]$state$pred$Ti - AllDat$yTi4)^2))
 rmse1 <- sqrt(mean(res1^2, na.rm = TRUE))
 rmse2 <- sqrt(mean(res2^2, na.rm = TRUE))
 rmse3 <- sqrt(mean(res3^2, na.rm = TRUE))
@@ -51,3 +55,5 @@ rmse3
 rmse4
 
 acf(res1, lag.max = 30)
+
+
