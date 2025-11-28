@@ -23,7 +23,7 @@ AllDat$bs3 = bs3
 AllDat$bs4 = bs4
 #AllDat$bs5 = bs5
 
-fit1 <- sde4room_base3(AllDat) # change to correct model
+fit1 <- sde4room_spline(AllDat) # change to correct model
 
 summary(fit1)
 summary(fit1, extended=TRUE)
@@ -54,11 +54,11 @@ points(Hour, res3,
 points(Hour, res4,
        col  = "orange")
 
-#legend("topright",
-#       legend = c("Ti1", "Ti2"),
-#       col    = c("blue", "red"),
-#       lty    = 1,
-#       bty    = "n")
+legend("bottomleft",
+       legend = c("Ti1", "Ti2", "Ti3", "Ti4"),
+       col    = c("blue", "red", "green", "orange"),
+       lty    = 1,
+       bty    = "n")
 
 #rmse1 <- sqrt(mean((Pred[[1]]$state$pred$Ti - AllDat$yTi4)^2))
 rmse1 <- sqrt(mean(res1^2, na.rm = TRUE))
@@ -72,5 +72,3 @@ rmse3
 rmse4
 
 acf(res1, lag.max = 30)
-
-

@@ -74,8 +74,6 @@ rmse4 <- sqrt(mean((Pred4[[1]]$state$pred$Ti - AllDat$yTi4)^2))
 
 plot(bs[14:27,1]*fit2$xm[3]+bs[14:27,3]*fit2$xm[5]+bs[14:27,4]*fit2$xm[6]+bs[14:27,5]*fit2$xm[7],type='l')
 
-
-
 # RMSE
 print('RMSE:')
 print(rmse1)
@@ -88,7 +86,3 @@ print(rmse4)
 
 # Plotting data
 plot(AllDat$Ph2 ~ Hour)
-
-
-
-

@@ -1,4 +1,4 @@
-sde4room_base3 <- function(data){
+sde4room_spline <- function(data){
   # Generate a new object of class ctsm
   model = ctsm()
   model$options$eta <- 0.5*1e-5

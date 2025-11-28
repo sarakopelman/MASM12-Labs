@@ -1,6 +1,7 @@
 # Load required libraries
 library(ggplot2)
 library(corrplot)
+load("CE3/Data/Exercise3.RData")
 
 # Overview of dataset
 str(AllDat)
@@ -97,7 +98,7 @@ library(ggplot2)
 library(lubridate)
 
 # Basic line plot over datetime
-ggplot(AllDat, aes(x = date, y = yTi4)) +
+ggplot(AllDat, aes(x = date, y = yTi1)) +
   geom_point(alpha = 0.5, color = "steelblue") +
   geom_line(aes(group = 1), alpha = 0.3, color = "steelblue") +
   theme_minimal() +
@@ -208,10 +209,25 @@ AllDat <- AllDat %>%
 # Example for one temperature column: yTi1
 
 # Plot 1: Temperature vs Hour
-p_temp <- ggplot(AllDat, aes(x = hour, y = yTi1)) +
+p_temp1 <- ggplot(AllDat, aes(x = hour, y = yTi1)) +
   geom_point(alpha = 0.7, color = "steelblue") +
   theme_minimal() +
-  labs(x = "Hour", y = "Temperature", title = "Temperature vs Hour")
+  labs(x = "Hour", y = "Temperature", title = "yT1 vs Hour")
+
+p_temp2 <- ggplot(AllDat, aes(x = hour, y = yTi2)) +
+  geom_point(alpha = 0.7, color = "steelblue") +
+  theme_minimal() +
+  labs(x = "Hour", y = "Temperature", title = "yT2 vs Hour")
+
+p_temp3 <- ggplot(AllDat, aes(x = hour, y = yTi3)) +
+  geom_point(alpha = 0.7, color = "steelblue") +
+  theme_minimal() +
+  labs(x = "Hour", y = "Temperature", title = "yT3 vs Hour")
+
+p_temp4 <- ggplot(AllDat, aes(x = hour, y = yTi4)) +
+  geom_point(alpha = 0.7, color = "steelblue") +
+  theme_minimal() +
+  labs(x = "Hour", y = "Temperature", title = "yT4 vs Hour")
 
 # Plot 2: Gv vs Hour
 p_gv <- ggplot(AllDat, aes(x = hour, y = Gv)) +
