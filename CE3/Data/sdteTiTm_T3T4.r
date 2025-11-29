@@ -6,12 +6,12 @@ sdeTiTm_T3T4 <- function(data, yTi, Ph){
   # Add a system equation and thereby also a state
   # Gv in Ti: Aw/Ci*Gv or Tm: Aw/Cm*Gv
   model$addSystem(dTi ~  1/Ci*(1/Ria*(Ta-Ti) + 1/Rim*(Tm-Ti)  + Ph + 
-                                 Gv*( a1*bs1 + a3*bs3 + a4*bs4 + a5*bs5 ) +
+                                 Gv*( a1*bs1 + a2*bs2+a3*bs3 + a4*bs4 + a5*bs5 ) +
                             1/R34*(yTi3 - Ti))*dt 
                   + exp(p11)*dw1)
   model$addSystem(dTm ~  1/Cm*(1/Rim*(Ti-Tm))*dt + exp(p22)*dw2)
   # Set the names of the inputs
-  model$addInput(Ta,Gv,Ph, bs1, bs3, bs4, bs5, yTi3)
+  model$addInput(Ta,Gv,Ph, bs1, bs2,bs3, bs4, bs5, yTi3)
   # Set the observation equation: Ti is the state, yTi is the measured output
   model$addObs(yTi ~ Ti)
 
@@ -32,7 +32,7 @@ sdeTiTm_T3T4 <- function(data, yTi, Ph){
   model$setParameter(p22 = c(init = 1, lb = -30, ub = 10))
   model$setParameter(e11 = c(init = -1, lb = -50, ub = 10))
   model$setParameter(a1 = c(init = 6, lb = 1E-2, ub = 7.5+4.8+5))
-  #model$setParameter(a2 = c(init = 6, lb = 1E-2, ub = 7.5+4.8+5))
+  model$setParameter(a2 = c(init = 6, lb = 1E-2, ub = 7.5+4.8+5))
   model$setParameter(a3 = c(init = 6, lb = 1E-2, ub = 7.5+4.8+5))
   model$setParameter(a4 = c(init = 6, lb = 1E-2, ub = 7.5+4.8+5))
   model$setParameter(a5 = c(init = 6, lb = 1E-2, ub = 7.5+4.8+5))

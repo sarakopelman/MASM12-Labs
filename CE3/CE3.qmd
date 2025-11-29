@@ -190,104 +190,366 @@ ggplot(df_plot, aes(x = Hour, y = value)) +
   theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
 
 
+```
+
+```{r}
+library(splines)
+# add splines
+idx <- (Hour>8 & Hour < 23) # It is impossible to fit a window area for the hours without any sun, so we limit the window area estimation to the hours with sun.
+bs = bs(Hour[idx],df=5,intercept=TRUE) 
+
+# What does the splines look like?
+plot(bs[14:27,1],type='l')
+lines(bs[ 14:27,2])
+lines(bs[ 14:27,3])
+lines(bs[ 14:27,4])
+lines(bs[ 14:27,5])
+
+bs1 <- bs2 <- bs3 <- bs4 <- bs5 <- bs6 <- numeric(dim(AllDat)[1])
+
+bs1[idx] = bs[,1]
+bs2[idx] = bs[,2]
+bs3[idx] = bs[,3]
+bs4[idx] = bs[,4]
+bs5[idx] = bs[,5]
+
+AllDat$bs1 = bs1
+AllDat$bs2 = bs2
+AllDat$bs3 = bs3
+AllDat$bs4 = bs4
+AllDat$bs5 = bs5
+```
+
+```{r}
+# Define train/test split: for example, 80% train, 20% test
+
+n_total <- nrow(AllDat)
+n_train <- floor(0.8 * n_total)
+
+# Create train and test datasets
+train_data <- AllDat[1:n_train, ]
+test_data  <- AllDat[(n_train + 1):n_total, ]
+test_data <- test_data %>%
+  rename(yTi = yTi4, Ph = Ph1)
+
+# Optional: show date ranges
+cat("Training set: ", min(train_data$date), " to ", max(train_data$date), "\n")
+cat("Test set: ", min(test_data$date), " to ", max(test_data$date), "\n")
+
+```
+
+ 
+
+```{r}
+plot_residuals_train_test <- function(fit, train_data, test_data) {
+  library(dplyr)
+  library(ggplot2)
+  library(lubridate)
+  library(tidyr)
+  
+  # --- TRAIN DATA ---
+  Pred <- predict(fit)
+  
+  # One-step-ahead naive predictor
+  train_data <- train_data %>%
+    arrange(date) %>%
+    mutate(Naive = lag(yTi4))
+  
+  # Remove first row and first day
+  first_day <- as.Date(min(train_data$date))
+  df_resid_plot <- train_data %>% 
+    slice(-1) %>%                        
+    filter(as.Date(date) > first_day)
+  
+  # Align model predictions
+  Pred_train <- Pred[[1]]$state$pred$Ti[-1]
+  Pred_train <- Pred_train[as.Date(train_data$date[-1]) > first_day]
+  
+  # Compute residuals
+  df_resid_plot <- df_resid_plot %>%
+    mutate(
+      Resid_Model = Pred_train - yTi4,
+      Resid_Naive = Naive - yTi4
+    )
+  
+  # Residuals by hour plot
+  df_hour_resid <- df_resid_plot %>% mutate(Hour = hour(date))
+  hour_plot_train <- ggplot(df_hour_resid, aes(x = Hour, y = Resid_Model)) +
+    geom_jitter(width = 0.2, alpha = 0.3, color = "steelblue") +
+    stat_summary(fun = mean, geom = "line", aes(group = 1), color = "black", size = 1) +
+    scale_x_continuous(breaks = 0:23) +
+    labs(title = "Residuals of One-Step-Ahead Prediction by Hour (Train Data, Filtered)",
+         x = "Hour of Day",
+         y = "Residual (Predicted - Actual)") +
+    theme_minimal()
+  
+  # Stacked residual plot
+  df_long <- df_resid_plot %>%
+    select(date, Resid_Model, Resid_Naive) %>%
+    pivot_longer(cols = c(Resid_Model, Resid_Naive),
+                 names_to = "Predictor", values_to = "Residual") %>%
+    mutate(Predictor = factor(Predictor, 
+                              levels = c("Resid_Model", "Resid_Naive"),
+                              labels = c("Model Residual", "Naive Residual")))
+  
+  rmse_model_train <- sqrt(mean(df_resid_plot$Resid_Model^2))
+  rmse_naive_train <- sqrt(mean(df_resid_plot$Resid_Naive^2))
+  
+  stacked_plot_train <- ggplot(df_long, aes(x = date, y = Residual)) +
+    geom_line(aes(color = Predictor), size = 1) +
+    geom_hline(yintercept = 0, linetype = "dotted") +
+    scale_color_manual(values = c("Model Residual" = "#1f77b4",
+                                  "Naive Residual" = "#ff7f0e")) +
+    facet_wrap(~ Predictor, ncol = 1, scales = "free_y") +
+    scale_x_datetime(date_labels = "%Y-%m-%d", date_breaks = "1 week") +
+    labs(title = "Room 4 Temperature: One-Step-Ahead Residuals (Train Data)",
+         subtitle = paste0("RMSE: Model = ", round(rmse_model_train, 2),
+                           " | Naive = ", round(rmse_naive_train, 2)),
+         x = "Date",
+         y = "Residual (Predicted - Actual)") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "none")
+  
+  # --- TEST DATA ---
+  Pred_test <- predict(fit, newdata = test_data)
+  
+  first_day_test <- as.Date(min(test_data$date))
+  df_resid_test <- test_data %>% filter(as.Date(date) > first_day_test)
+  
+  Pred_test_aligned <- Pred_test$state$pred$Ti[as.Date(test_data$date) > first_day_test]
+  
+  df_resid_test <- df_resid_test %>%
+    mutate(Resid_Model = Pred_test_aligned - yTi) %>%
+    arrange(date) %>%
+    mutate(Naive = lag(yTi),
+           Resid_Naive = Naive - yTi) %>%
+    slice(-1)
+  
+  # Residuals by hour plot
+  df_hour_resid_test <- df_resid_test %>% mutate(Hour = hour(date))
+  hour_plot_test <- ggplot(df_hour_resid_test, aes(x = Hour, y = Resid_Model)) +
+    geom_jitter(width = 0.2, alpha = 0.3, color = "steelblue") +
+    stat_summary(fun = mean, geom = "line", aes(group = 1), color = "black", size = 1) +
+    scale_x_continuous(breaks = 0:23) +
+    labs(title = "Residuals of One-Step-Ahead Prediction by Hour (Test Data, Filtered)",
+         x = "Hour of Day",
+         y = "Residual (Predicted - Actual)") +
+    theme_minimal()
+  
+  df_long_test <- df_resid_test %>%
+    select(date, Resid_Model, Resid_Naive) %>%
+    pivot_longer(cols = c(Resid_Model, Resid_Naive),
+                 names_to = "Predictor", values_to = "Residual") %>%
+    mutate(Predictor = factor(Predictor, 
+                              levels = c("Resid_Model", "Resid_Naive"),
+                              labels = c("Model Residual", "Naive Residual")))
+  
+  rmse_model_test <- sqrt(mean(df_resid_test$Resid_Model^2))
+  rmse_naive_test <- sqrt(mean(df_resid_test$Resid_Naive^2))
+  
+  stacked_plot_test <- ggplot(df_long_test, aes(x = date, y = Residual)) +
+    geom_line(aes(color = Predictor), size = 1) +
+    geom_hline(yintercept = 0, linetype = "dotted") +
+    scale_color_manual(values = c("Model Residual" = "#1f77b4",
+                                  "Naive Residual" = "#ff7f0e")) +
+    facet_wrap(~ Predictor, ncol = 1, scales = "free_y") +
+    scale_x_datetime(date_labels = "%Y-%m-%d", date_breaks = "1 week") +
+    labs(title = "Room 4 Temperature: One-Step-Ahead Residuals (Test Data)",
+         subtitle = paste0("RMSE: Model = ", round(rmse_model_test, 2),
+                           " | Naive = ", round(rmse_naive_test, 2)),
+         x = "Date",
+         y = "Residual (Predicted - Actual)") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "none")
+  
+  return(list(
+    train = list(hour_plot = hour_plot_train,
+                 stacked_plot = stacked_plot_train,
+                 RMSE_model = rmse_model_train,
+                 RMSE_naive = rmse_naive_train),
+    test = list(hour_plot = hour_plot_test,
+                stacked_plot = stacked_plot_test,
+                RMSE_model = rmse_model_test,
+                RMSE_naive = rmse_naive_test)
+  ))
+}
 
 ```
 
 ```{r}
-#First simple model
 library("ctsmr")
-fit1 <- sdeTiTm(AllDat,AllDat$yTi4,AllDat$Ph2)
+fit1 <- sdeTiTm(train_data,train_data$yTi4,train_data$Ph2)
+# Call the function
+residual_results <- plot_residuals_train_test(fit = fit1,
+                                              train_data = train_data,
+                                              test_data = test_data)
+
+# Access train hour-by-hour residual plot
+residual_results$train$hour_plot
+
+# Access train stacked residual plot
+residual_results$train$stacked_plot
+
+# Train RMSEs
+residual_results$train$RMSE_model
+residual_results$train$RMSE_naive
+
+# Access test hour-by-hour residual plot
+residual_results$test$hour_plot
+
+# Access test stacked residual plot
+residual_results$test$stacked_plot
+
+# Test RMSEs
+residual_results$test$RMSE_model
+residual_results$test$RMSE_naive
 
 ```
 
 ```{r}
-library(dplyr)
-library(ggplot2)
-
-# Compute one-step-ahead residuals
-Pred_vals <- Pred[[1]]$state$pred$Ti
-residuals <- Pred_vals - AllDat$yTi4
-
-# Add to dataframe
-df_resid <- AllDat %>%
-  mutate(Residual = residuals)
-
-# Plot residuals by hour
-ggplot(df_resid, aes(x = Hour, y = Residual)) +
-  geom_jitter(width = 0.2, alpha = 0.3, color = "steelblue") +
-  stat_summary(fun = mean, geom = "line", aes(group = 1), color = "black", size = 1) +
-  scale_x_continuous(breaks = 0:23) +
-  labs(title = "Residuals of One-Step-Ahead Prediction by Hour",
-       x = "Hour of Day",
-       y = "Residual (Predicted - Actual)") +
-  theme_minimal()
+#Splines
+source("Data/sdeTiTm_spline.R")
+fit2 <- sdeTiTm_spline(train_data,train_data$yTi4,train_data$Ph2)
 
 ```
 
 ```{r}
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(lubridate)
+# Call the function
+residual_results <- plot_residuals_train_test(fit = fit2,
+                                              train_data = train_data,
+                                              test_data = test_data)
 
-# Ensure date is POSIXct
-AllDat$date <- as.POSIXct(AllDat$date)
+# Access train hour-by-hour residual plot
+residual_results$train$hour_plot
 
-# One-step-ahead naive predictor: previous temperature
-AllDat <- AllDat %>%
-  arrange(date) %>%
-  mutate(Naive = lag(yTi4))
+# Access train stacked residual plot
+residual_results$train$stacked_plot
 
-# Remove first row (NA in naive) AND first day
-first_day <- as.Date(min(AllDat$date))
-df_resid_plot <- AllDat %>% 
-  slice(-1) %>%                        # remove first row (NA in naive)
-  filter(as.Date(date) > first_day)     # remove first day
+# Train RMSEs
+residual_results$train$RMSE_model
+residual_results$train$RMSE_naive
 
-# Align model predictions to filtered rows
-Pred_vals_filtered <- Pred[[1]]$state$pred$Ti[-1]   # skip first prediction
-Pred_vals_filtered <- Pred_vals_filtered[
-  as.Date(AllDat$date[-1]) > first_day
-]
+# Access test hour-by-hour residual plot
+residual_results$test$hour_plot
 
-# Compute residuals
-df_resid_plot <- df_resid_plot %>%
-  mutate(
-    Resid_Model = Pred_vals_filtered - yTi4,
-    Resid_Naive = Naive - yTi4
-  )
+# Access test stacked residual plot
+residual_results$test$stacked_plot
 
-# Prepare data in long format for faceting
-df_long <- df_resid_plot %>%
-  select(date, Resid_Model, Resid_Naive) %>%
-  pivot_longer(cols = c(Resid_Model, Resid_Naive),
-               names_to = "Predictor", values_to = "Residual") %>%
-  mutate(Predictor = factor(Predictor, 
-                            levels = c("Resid_Model", "Resid_Naive"),
-                            labels = c("Model Residual", "Naive Residual")))
+# Test RMSEs
+residual_results$test$RMSE_model
+residual_results$test$RMSE_naive
+```
 
-# Compute RMSEs for subtitle
-rmse_model <- sqrt(mean(df_resid_plot$Resid_Model^2))
-rmse_naive <- sqrt(mean(df_resid_plot$Resid_Naive^2))
+```{r}
+#heat frac
+source("Data/sdeTiTm_heatfrac.R")
+fit3 <- sdeTiTm_heatfrac(train_data,train_data$yTi4,train_data$Ph2)
+```
 
-# Stacked residual plot
-ggplot(df_long, aes(x = date, y = Residual)) +
-  geom_line(aes(color = Predictor), size = 1) +
-  geom_hline(yintercept = 0, linetype = "dotted") +
-  scale_color_manual(values = c("Model Residual" = "#1f77b4",   # blue
-                                "Naive Residual" = "#ff7f0e")) + # orange
-  facet_wrap(~ Predictor, ncol = 1, scales = "free_y") +
-  scale_x_datetime(date_labels = "%Y-%m-%d", date_breaks = "1 week") +
-  labs(
-    title = "Room 4 Temperature: One-Step-Ahead Residuals",
-    subtitle = paste0("RMSE: Model = ", round(rmse_model, 2),
-                      " | Naive = ", round(rmse_naive, 2)),
-    x = "Date",
-    y = "Residual (Predicted - Actual)"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "none")
+```{r}
+# Call the function
+residual_results <- plot_residuals_train_test(fit = fit3,
+                                              train_data = train_data,
+                                              test_data = test_data)
 
+# Access train hour-by-hour residual plot
+residual_results$train$hour_plot
 
+# Access train stacked residual plot
+residual_results$train$stacked_plot
+
+# Train RMSEs
+residual_results$train$RMSE_model
+residual_results$train$RMSE_naive
+
+# Access test hour-by-hour residual plot
+residual_results$test$hour_plot
+
+# Access test stacked residual plot
+residual_results$test$stacked_plot
+
+# Test RMSEs
+residual_results$test$RMSE_model
+residual_results$test$RMSE_naive
+```
+
+```{r}
+source("Data/sdteTiTm_T3T4.R")
+fit4 <- sdeTiTm_T3T4(train_data,train_data$yTi4,train_data$Ph2)
+```
+
+```{r}
+# Call the function
+residual_results <- plot_residuals_train_test(fit = fit4,
+                                              train_data = train_data,
+                                              test_data = test_data)
+
+# Access train hour-by-hour residual plot
+residual_results$train$hour_plot
+
+# Access train stacked residual plot
+residual_results$train$stacked_plot
+
+# Train RMSEs
+residual_results$train$RMSE_model
+residual_results$train$RMSE_naive
+
+# Access test hour-by-hour residual plot
+residual_results$test$hour_plot
+
+# Access test stacked residual plot
+residual_results$test$stacked_plot
+
+# Test RMSEs
+residual_results$test$RMSE_model
+residual_results$test$RMSE_naive
+```
+
+```{r}
+
+AllDat_filtered <- AllDat %>%
+  filter(!month(date) %in% c(4, 5))
+# Define train/test split: for example, 80% train, 20% test
+
+n_total <- nrow(AllDat_filtered)
+n_train <- floor(0.8 * n_total)
+
+# Create train and test datasets
+train_data2 <- AllDat_filtered[1:n_train, ]
+test_data2  <- AllDat_filtered[(n_train + 1):n_total, ]
+test_data2 <- test_data2 %>%
+  rename(yTi = yTi4, Ph = Ph1)
+```
+
+```{r}
+fit5 <- sdeTiTm_T3T4(train_data2,train_data2$yTi4,train_data2$Ph2)
+```
+
+```{r}
+# Call the function
+residual_results <- plot_residuals_train_test(fit = fit5,
+                                              train_data = train_data2,
+                                              test_data = test_data2)
+
+# Access train hour-by-hour residual plot
+residual_results$train$hour_plot
+
+# Access train stacked residual plot
+residual_results$train$stacked_plot
+
+# Train RMSEs
+residual_results$train$RMSE_model
+residual_results$train$RMSE_naive
+
+# Access test hour-by-hour residual plot
+residual_results$test$hour_plot
+
+# Access test stacked residual plot
+residual_results$test$stacked_plot
+
+# Test RMSEs
+residual_results$test$RMSE_model
+residual_results$test$RMSE_naive
 ```
