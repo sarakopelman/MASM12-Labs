@@ -1,4 +1,4 @@
-sde4room_R13 <- function(data){
+sde4room_mimj <- function(data){
   # Generate a new object of class ctsm
   model = ctsm()
   model$options$eta <- 1e-5
@@ -7,7 +7,7 @@ sde4room_R13 <- function(data){
   # Gv in Ti: Aw/Ci*Gv or Tm: Aw/Cm*Gv
   # 1/R13*(Ti1-Ti3)
   model$addSystem(
-    dTi1 ~ 1/Ci1*( 1/R1a*(Ta-Ti1) + 1/Rim*(Tm1-Ti1) + 1/R12*(Ti1-Ti2) + 1/R13*(Ti1-Ti3) + Ph1 + Aw1*Gv)*dt 
+    dTi1 ~ 1/Ci1*( 1/R1a*(Ta-Ti1) + 1/Rim*(Tm1-Ti1) + 1/R12*(Ti1-Ti2)  +1/R13*(Ti1-Ti3) + Ph1)*dt 
     + exp(logsigma_i)*dw1
   )
   model$addSystem(
@@ -15,7 +15,7 @@ sde4room_R13 <- function(data){
   )
   
   model$addSystem(
-    dTi2 ~ 1/Ci2*( 1/Ria*(Ta-Ti2) + 1/Rim*(Tm2-Ti2) + 1/R12*(Ti1-Ti2) +1/R13*(Ti1-Ti3)+ 1/R23*(Ti2-Ti3) + Ph1 + Aw2*Gv)*dt 
+    dTi2 ~ 1/Ci2*( 1/Ria*(Ta-Ti2) + 1/Rim*(Tm2-Ti2) + 1/R12*(Ti1-Ti2) +1/R13*(Ti1-Ti3)+ 1/R23*(Ti2-Ti3) + Ph1)*dt 
     + exp(logsigma_i)*dw3
   )
   model$addSystem(
@@ -75,15 +75,14 @@ sde4room_R13 <- function(data){
   model$setParameter(Cm4 = c(init = 18000, lb = 1E-5, ub = 1E5))
   
   model$setParameter(Ria = c(init = 3, lb = 1E-4, ub = 1E5))
-  model$setParameter(R1a = c(init = 11, lb = 1E-4, ub = 1E5))
   model$setParameter(Rim = c(init = 0.2, lb = 1E-4, ub = 1E5))  
+  model$setParameter(R1a = c(init = 11, lb = 1E-4, ub = 1E5))
+  
   model$setParameter(R12 = c(init = 0.4, lb = 1E-4, ub = 1E5))
   model$setParameter(R13 = c(init = 50, lb = 1E-4, ub = 1E5))
   model$setParameter(R23 = c(init = 30, lb = 1E-4, ub = 1E5))
   model$setParameter(R34 = c(init = 20, lb = 1E-4, ub = 1E5))
   
-  model$setParameter(Aw1 = c(init = 4.4, lb = 1E-2, ub = 7.5+4.8+5))
-  model$setParameter(Aw2 = c(init = 0.6, lb = 1E-2, ub = 7.5+4.8+5))
   model$setParameter(Aw3 = c(init = 8, lb = 1E-2, ub = 7.5+4.8+5))
   model$setParameter(Aw4 = c(init = 8, lb = 1E-2, ub = 7.5+4.8+5))
   

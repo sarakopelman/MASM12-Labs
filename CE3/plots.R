@@ -192,10 +192,6 @@ for (col in temp_cols){
 # Show RMSE for each room
 rmse_results
 
-
-
-
-
 # Extract hour
 # Extract hour and month
 AllDat <- AllDat %>%
@@ -418,6 +414,14 @@ ggplot(cor_results, aes(x = Room, y = Correlation, fill = OtherRoom)) +
   labs(title = "Correlation between Room Temperature and Differences with Other Rooms",
        y = "Correlation",
        x = "Room")
+
+
+
+
+plot(AllDat$date,AllDat$yTi1, type = "l", col = "blue", xlab = "Month", ylab = "Temperature", main = "yT1", ylim= c(15, 30))
+plot(AllDat$date,AllDat$yTi2, type = "l", col = "red", xlab = "Month", ylab = "Temperature", main = "yT2", ylim= c(15, 30))
+plot(AllDat$date,AllDat$yTi3, type = "l", col = "green", xlab = "Month", ylab = "Temperature", main = "yT3", ylim= c(15, 30))
+plot(AllDat$date,AllDat$yTi4, type = "l", col = "orange", xlab = "Month", ylab = "Temperature", main = "yT4", ylim= c(15, 30))
 
 
 
